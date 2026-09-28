@@ -226,9 +226,18 @@ def _character_cards_md(chars: list) -> str:
             for st in (c.get("clothing_states") or [])
             if isinstance(st, dict)
         )
+        anc = c.get("anchor") or {}
+        if isinstance(anc, dict) and anc.get("character_name"):
+            orig = f"（出品作品：《{anc['anime_origin']}》）" if anc.get("anime_origin") else ""
+            anc_str = f"{anc['character_name']}{orig}"
+        elif isinstance(anc, str) and anc.strip():
+            anc_str = anc.strip()
+        else:
+            anc_str = "（未指定）"
+        gender_cn = "女性" if c.get("gender") == "female" else "男性"
         blocks.append(
-            f"### {c.get('name', '?')}（anchor: {c.get('anchor', '?')}）\n"
-            f"- 外貌：{c.get('appearance_cn', '')}\n"
+            f"### {c.get('name', '?')}（性别：{gender_cn} | 锚定已知经典动漫角色：{anc_str}）\n"
+            f"- 核心外貌完整复述：{c.get('appearance_cn', '')}\n"
             f"- 衣着状态：{states or '（未定义）'}\n"
             f"- 英文外貌 tags：{c.get('danbooru_tags', '')}"
         )

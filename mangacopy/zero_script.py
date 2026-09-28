@@ -37,7 +37,7 @@ _L3_HEADERS = [
     "## 分镜编号与位置", "## 出场人物", "## 动作与姿态", "## 空间关系与构图",
     "## 镜头角度", "## 背景环境", "## 对白原文", "## 拟声词", "## 氛围与情绪", "## 备注",
 ]
-_GENDERS = {"male", "female", "unknown"}
+_GENDERS = {"male", "female"}
 _MAX_REVISE_ROUNDS = 2
 _CALL_TIMEOUT = 1200  # s; 2026-09-27 用户终版裁定：上限 20 分钟；大输入任务另靠拆解（树形归并）解决
 
@@ -191,7 +191,18 @@ def _validate_settings(data, pages=None, require_coverage=True):
     return errs
 
 
+def _unwrap_settings_dict(data):
+    if isinstance(data, list) and len(data) == 1 and isinstance(data[0], dict):
+        data = data[0]
+    if isinstance(data, dict) and "characters" not in data:
+        for k, v in data.items():
+            if isinstance(v, dict) and "characters" in v:
+                return v
+    return data
+
+
 def _validate_settings_struct(data):
+    data = _unwrap_settings_dict(data)
     if not isinstance(data, dict):
         return ["输出必须是 JSON 对象"]
     errs = []
@@ -213,11 +224,41 @@ def _validate_settings_struct(data):
             errs.append(f"{w} 缺少 aliases")
         elif not isinstance(c["aliases"], list):
             errs.append(f"{w}.aliases 必须是数组（无别名则空数组）")
-        if c.get("gender") not in _GENDERS:
-            errs.append(f"{w}.gender 必须是 male/female/unknown")
-        for k in ("appearance_cn", "danbooru_tags", "anchor"):
-            if not isinstance(c.get(k), str):
-                errs.append(f"{w}.{k} 必须是字符串")
+        
+        # 性别硬性锁死：必须是 female 或 male
+        g = str(c.get("gender", "")).strip().lower()
+        if g not in _GENDERS:
+            errs.append(f"{w}.gender 必须是 female 或 male（严禁 unknown 或其他模糊值）")
+            
+        # 完整外貌复述
+        app = c.get("appearance_cn")
+        if not isinstance(app, str) or len(app.strip()) < 5:
+            errs.append(f"{w}.appearance_cn 必须是完整外貌复述（包含生理性别、发型发色、眼眸五官、身材骨架）")
+            
+        # danbooru_tags
+        dt = c.get("danbooru_tags")
+        if not isinstance(dt, str) or not dt.strip():
+            errs.append(f"{w}.danbooru_tags 必须是非空字符串")
+        else:
+            first_tag = dt.split(",")[0].strip().lower()
+            if first_tag not in {"1girl", "1boy", "2girls", "2boys"}:
+                errs.append(f"{w}.danbooru_tags 首词必须是 '1girl' 或 '1boy'（以锁死人物性别与核心骨架）")
+        
+        # anchor 验证：支持 dict（含 character_name 和 anime_origin）或兼容 string
+        anchor = c.get("anchor")
+        if isinstance(anchor, dict):
+            if not isinstance(anchor.get("character_name"), str) or not anchor["character_name"].strip():
+                errs.append(f"{w}.anchor.character_name 必须是非空已知经典动漫角色名")
+            if not isinstance(anchor.get("anime_origin"), str) or not anchor["anime_origin"].strip():
+                errs.append(f"{w}.anchor.anime_origin 必须是非空动漫作品出处名称")
+            if "anchor_danbooru" in anchor and not isinstance(anchor["anchor_danbooru"], str):
+                errs.append(f"{w}.anchor.anchor_danbooru 必须是字符串")
+        elif isinstance(anchor, str):
+            if not anchor.strip():
+                errs.append(f"{w}.anchor 必须非空（须提供已知经典动漫角色名及作品出处）")
+        else:
+            errs.append(f"{w}.anchor 必须是对象或包含角色及作品的字符串")
+
         sts = c.get("clothing_states")
         if not isinstance(sts, list) or not sts:
             errs.append(f"{w}.clothing_states 必须是非空数组")
@@ -250,6 +291,7 @@ def _validate_settings_struct(data):
 
 
 def _coerce_settings(data) -> dict:
+    data = _unwrap_settings_dict(data) or {}
     def _s(v):
         return v if isinstance(v, str) else ("" if v is None else str(v))
 
@@ -272,13 +314,62 @@ def _coerce_settings(data) -> dict:
                 "state_cn": _s(st.get("state_cn")),
                 "danbooru_tags": _s(st.get("danbooru_tags")),
             })
+        
+        # 性别规整：
+        g = str(c.get("gender", "")).strip().lower()
+        if g in {"female", "f", "woman", "girl", "女", "女性", "少女"}:
+            norm_g = "female"
+        elif g in {"male", "m", "man", "boy", "男", "男性", "少年"}:
+            norm_g = "male"
+        else:
+            # 智能从 danbooru_tags 或 appearance_cn 推断
+            dt_raw = str(c.get("danbooru_tags", "")).lower()
+            app_raw = str(c.get("appearance_cn", ""))
+            if "1boy" in dt_raw or "男" in app_raw or "少年" in app_raw:
+                norm_g = "male"
+            else:
+                norm_g = "female"
+
+        # 规整 anchor 为 dict:
+        raw_anchor = c.get("anchor")
+        if isinstance(raw_anchor, dict):
+            anchor_dict = {
+                "character_name": _s(raw_anchor.get("character_name")).strip(),
+                "anime_origin": _s(raw_anchor.get("anime_origin")).strip(),
+                "anchor_danbooru": _s(raw_anchor.get("anchor_danbooru")).strip(),
+            }
+        else:
+            anc_str = _s(raw_anchor).strip()
+            m = re.match(r"^(.+?)[（\(](.+?)[）\)](.*)$", anc_str)
+            if m:
+                anchor_dict = {
+                    "character_name": m.group(1).strip(),
+                    "anime_origin": m.group(2).strip(),
+                    "anchor_danbooru": "",
+                }
+            else:
+                anchor_dict = {
+                    "character_name": anc_str,
+                    "anime_origin": "",
+                    "anchor_danbooru": "",
+                }
+
+        # 规整 danbooru_tags 首词必须为 1girl 或 1boy
+        raw_dt = _s(c.get("danbooru_tags")).strip()
+        if raw_dt:
+            first_t = raw_dt.split(",")[0].strip().lower()
+            if first_t not in {"1girl", "1boy", "2girls", "2boys"}:
+                raw_dt = f"{'1girl' if norm_g == 'female' else '1boy'}, {raw_dt}"
+        else:
+            raw_dt = "1girl" if norm_g == "female" else "1boy"
+
         chars.append({
             "name": _s(c.get("name")).strip(),
             "aliases": _ss(c.get("aliases")),
-            "gender": c.get("gender") if c.get("gender") in _GENDERS else "unknown",
+            "gender": norm_g,
+            "anchor": anchor_dict,
             "appearance_cn": _s(c.get("appearance_cn")),
-            "danbooru_tags": _s(c.get("danbooru_tags")),
-            "anchor": _s(c.get("anchor")),
+            "danbooru_tags": raw_dt,
             "clothing_states": sts,
         })
     envs = []
@@ -301,10 +392,19 @@ def _settings_digest(settings: dict) -> str:
     lines = ["人物："]
     for c in settings["characters"]:
         alias = f"（别名：{'、'.join(c['aliases'])}）" if c["aliases"] else ""
+        anc = c.get("anchor") or {}
+        if isinstance(anc, dict) and anc.get("character_name"):
+            orig = f"（出自作品：《{anc['anime_origin']}》）" if anc.get("anime_origin") else ""
+            anc_str = f"【锚定已知经典动漫角色：{anc['character_name']}{orig}】"
+        elif isinstance(anc, str) and anc.strip():
+            anc_str = f"【锚定角色：{anc}】"
+        else:
+            anc_str = ""
         clothing = "；".join(
             f"第{st['pages']}页 {st['state_cn']}" for st in c["clothing_states"]
         ) or "无记录"
-        lines.append(f"- {c['name']}{alias}：{c['appearance_cn']}；衣着：{clothing}")
+        gender_cn = "女性" if c.get("gender") == "female" else "男性"
+        lines.append(f"- {c['name']}{alias}（{gender_cn}）{anc_str}：{c['appearance_cn']}；外貌标签：{c['danbooru_tags']}；衣着：{clothing}")
     lines.append("环境：")
     for e in settings["environments"]:
         lines.append(f"- {e['name']}：{e['desc_cn']}")
@@ -315,23 +415,29 @@ def _settings_digest(settings: dict) -> str:
 def _render_settings_md(settings: dict) -> str:
     lines = ["# 全话设定（L0，已冻结）", "", "## 人物", ""]
     for c in settings["characters"]:
+        gender_cn = "女性" if c.get("gender") == "female" else "男性"
         lines.append(f"### {c['name']}")
         if c["aliases"]:
             lines.append(f"- 别名：{'、'.join(c['aliases'])}")
-        lines.append(f"- 性别：{c['gender']}")
-        lines.append(f"- 外貌：{c['appearance_cn'] or '（未记录）'}")
-        lines.append(f"- 外貌标签（danbooru）：{c['danbooru_tags'] or '（无）'}")
-        if c["anchor"]:
-            lines.append(f"- 相似角色锚点：{c['anchor']}")
+        lines.append(f"- 性别：{c.get('gender', 'unknown')}（{gender_cn}）")
+        anc = c.get("anchor") or {}
+        if isinstance(anc, dict) and anc.get("character_name"):
+            orig = f"（出品作品：《{anc['anime_origin']}》）" if anc.get("anime_origin") else ""
+            danb = f"，Danbooru标签：`{anc['anchor_danbooru']}`" if anc.get("anchor_danbooru") else ""
+            lines.append(f"- 锚定知名经典动漫角色：**{anc['character_name']}** {orig}{danb}")
+        elif isinstance(anc, str) and anc.strip():
+            lines.append(f"- 锚定知名经典动漫角色：**{anc}**")
+        lines.append(f"- 核心外貌完整复述：{c['appearance_cn'] or '（未记录）'}")
+        lines.append(f"- 外貌标签（danbooru）：`{c['danbooru_tags'] or '（无）'}`")
         lines.append("- 衣着状态机：")
         for st in c["clothing_states"]:
-            lines.append(f"  - 第 {st['pages']} 页：{st['state_cn']}（{st['danbooru_tags']}）")
+            lines.append(f"  - 第 {st['pages']} 页：{st['state_cn']}（`{st['danbooru_tags']}`）")
         lines.append("")
     lines += ["## 环境", ""]
     for e in settings["environments"]:
         lines.append(f"### {e['name']}")
         lines.append(f"- 描述：{e['desc_cn']}")
-        lines.append(f"- 标签（danbooru）：{e['danbooru_tags']}")
+        lines.append(f"- 标签（danbooru）：`{e['danbooru_tags']}`")
         lines.append("")
     lines += ["## 画风备注", "", settings["style_notes"] or "（无）", ""]
     return "\n".join(lines)
@@ -518,47 +624,69 @@ def _s1_compact(page_json: dict) -> dict:
     }
 
 
+def _format_roster(chars: list) -> str:
+    if not chars:
+        return "（无，本块为开篇首块）"
+    lines = []
+    for c in chars:
+        anc = c.get("anchor") or {}
+        if isinstance(anc, dict) and anc.get("character_name"):
+            orig = f"（出品作品：《{anc['anime_origin']}》）" if anc.get("anime_origin") else ""
+            anc_str = f"{anc['character_name']}{orig}"
+        elif isinstance(anc, str) and anc.strip():
+            anc_str = anc
+        else:
+            anc_str = "（未指定）"
+        gender_cn = "女性" if c.get("gender") == "female" else "男性"
+        lines.append(
+            f"- 【已登记角色】：{c['name']}（性别：{gender_cn}，别名：{'、'.join(c.get('aliases', [])) or '无'}）\n"
+            f"  - 锚定已知经典动漫角色：{anc_str}\n"
+            f"  - 核心外貌完整复述：{c.get('appearance_cn', '')}\n"
+            f"  - 外貌 danbooru tags：{c.get('danbooru_tags', '')}"
+        )
+    return "\n".join(lines)
+
+
 def _run_l0(proj, sel, s1_map, sessions, log, chunk_size, concurrency):
     s2_dir = proj.out_dir("s2")
     chunks = [sel[i:i + chunk_size] for i in range(0, len(sel), chunk_size)]
 
-    def one_chunk(i, chunk):
-        # per-chunk checkpoint (2026-09-27): completed chunks are reused on
-        # rerun instead of being lost with a whole-stage failure
+    chunks_json = []
+    accumulated_chars = []
+    for i, chunk in enumerate(chunks):
         item = f"l0_chunk_{i:02d}"
         prev = (proj.state["stages"]["s2"]["items"].get(item) or {}).get("data") or {}
         if proj.item_status("s2", item) == "completed" and prev.get("chunk") is not None:
             log.info(f"L0 chunk {_range_str(chunk)}: skip (checkpoint)")
-            return chunk, prev["chunk"], None
-        pages_json = json.dumps(
-            [_s1_compact(s1_map[p]) for p in chunk], ensure_ascii=False, indent=1
-        )
-        rng = _range_str(chunk)
-        prompt = templates.render("s2_l0_chunk", PAGES_JSON=pages_json, PAGE_RANGE=rng)
-        # Structure only: a character appearing on part of the chunk legitimately
-        # has states only for those pages; the merge produces the full machine.
-        data, err = _json_call(f"s2 L0 chunk {rng}", prompt,
-                               lambda d: _validate_settings(d, require_coverage=False),
-                               sessions[i % len(sessions)], log)
-        if data is None:
-            _set_item(proj, item, "failed", {"error": err})
-            return chunk, None, err
-        data = _coerce_settings(data)
-        _set_item(proj, item, "completed", {"chunk": data})
-        return chunk, data, None
+            data = prev["chunk"]
+        else:
+            pages_json = json.dumps(
+                [_s1_compact(s1_map[p]) for p in chunk], ensure_ascii=False, indent=1
+            )
+            rng = _range_str(chunk)
+            roster_md = _format_roster(accumulated_chars)
+            prompt = templates.render(
+                "s2_l0_chunk",
+                PAGES_JSON=pages_json,
+                PAGE_RANGE=rng,
+                EXISTING_ROSTER_MD=roster_md,
+            )
+            data, err = _json_call(
+                f"s2 L0 chunk {rng}", prompt,
+                lambda d: _validate_settings(d, require_coverage=False),
+                sessions[i % len(sessions)], log
+            )
+            if data is None:
+                _set_item(proj, item, "failed", {"error": err})
+                log.error(f"L0 chunk {_range_str(chunk)} failed: {err}")
+                return None
+            data = _coerce_settings(data)
+            _set_item(proj, item, "completed", {"chunk": data})
 
-    results = [None] * len(chunks)
-    with ThreadPoolExecutor(max_workers=min(concurrency, max(1, len(chunks)))) as ex:
-        futs = {ex.submit(one_chunk, i, ch): i for i, ch in enumerate(chunks)}
-        for fut in as_completed(futs):
-            results[futs[fut]] = fut.result()
-
-    chunks_json = []
-    for chunk, data, err in results:
-        if data is None:
-            log.error(f"L0 chunk {_range_str(chunk)} failed: {err}")
-            return None
         chunks_json.append(data)
+        for c in data.get("characters") or []:
+            if not any(c.get("name") == ec.get("name") for ec in accumulated_chars):
+                accumulated_chars.append(c)
 
     # ---- tree merge: pairwise reduction (user 2026-09-27 directive) ----
     # A single 7-way merge (~30-60K input tokens) starved the endpoint's

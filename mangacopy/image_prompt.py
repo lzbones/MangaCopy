@@ -294,9 +294,21 @@ def _resolve_chars(appear: list, page: int) -> list:
     out = []
     for c in appear:
         state_cn, cloth = _clothing_for_page(c, page)
+        anc = c.get("anchor") or {}
+        if isinstance(anc, dict):
+            anchor_danbooru = str(anc.get("anchor_danbooru", "") or "").strip()
+            anchor_name = str(anc.get("character_name", "") or "").strip()
+            anime_origin = str(anc.get("anime_origin", "") or "").strip()
+        else:
+            anchor_danbooru = ""
+            anchor_name = str(anc or "").strip()
+            anime_origin = ""
+        clean_anchor_danbooru = _remove_cjk_tokens(anchor_danbooru) if anchor_danbooru else ""
         out.append({
             "name": str(c.get("name", "") or ""),
-            "anchor": str(c.get("anchor", "") or "").strip(),
+            "anchor": clean_anchor_danbooru,
+            "anchor_name": anchor_name,
+            "anime_origin": anime_origin,
             "danbooru_tags": str(c.get("danbooru_tags", "") or ""),
             "clothing_state_cn": state_cn,
             "clothing_tags": cloth,
@@ -313,7 +325,8 @@ def _assemble(count: str, resolved: list, scene: str, tail: str) -> str:
         block = []
         if cr["anchor"]:
             block.append(cr["anchor"])
-        block.append(cr["danbooru_tags"])
+        if cr["danbooru_tags"]:
+            block.append(cr["danbooru_tags"])
         if cr["clothing_tags"]:
             block.append(cr["clothing_tags"])
         parts.append(", ".join(b for b in block if b))
@@ -338,13 +351,30 @@ def _build_one(proj: Project, key: str, order: int, chars: list,
         count = _count_tag(appear)
         scene, tail = _scene_block(key, md, session_id, log)
         positive = _assemble(count, resolved, scene, tail)
+        
+        # 动态性别隔离（硬隔离防止生图男女颠倒）
+        has_female = any(cr["gender"] == "female" for cr in resolved)
+        has_male = any(cr["gender"] == "male" for cr in resolved)
+        gender_neg = []
+        if has_female and not has_male:
+            gender_neg = ["1boy", "male", "man", "boy", "gender swap", "gender change"]
+        elif has_male and not has_female:
+            gender_neg = ["1girl", "female", "woman", "girl", "gender swap", "gender change"]
+
+        neg_parts = []
+        if gender_neg:
+            neg_parts.append(", ".join(gender_neg))
+        if negative:
+            neg_parts.append(negative)
+        final_negative = ", ".join(neg_parts)
+
         seed = int(hashlib.md5(f"{proj.id}:{key}".encode()).hexdigest()[:8], 16)
         entry = {
             "panel": key,
             "page": page,
             "order": order,
             "positive": positive,
-            "negative": negative,
+            "negative": final_negative,
             "anchor": [cr["anchor"] for cr in resolved if cr["anchor"]],
             "characters": resolved,
             "size_bucket": bucket,
@@ -430,10 +460,22 @@ def _repair_one(prompt: dict, by_name: dict, crop_dir, log) -> None:
             log.warning(f"{key}: character {cr.get('name','?')} missing from settings, keeping stored data")
             continue
         state_cn, cloth = _clothing_for_page(c, page)
-        cr["anchor"] = str(c.get("anchor", "") or "").strip()
+        anc = c.get("anchor") or {}
+        if isinstance(anc, dict):
+            anchor_danbooru = str(anc.get("anchor_danbooru", "") or "").strip()
+            anchor_name = str(anc.get("character_name", "") or "").strip()
+            anime_origin = str(anc.get("anime_origin", "") or "").strip()
+        else:
+            anchor_danbooru = ""
+            anchor_name = str(anc or "").strip()
+            anime_origin = ""
+        cr["anchor"] = _remove_cjk_tokens(anchor_danbooru) if anchor_danbooru else ""
+        cr["anchor_name"] = anchor_name
+        cr["anime_origin"] = anime_origin
         cr["danbooru_tags"] = str(c.get("danbooru_tags", "") or "")
         cr["clothing_state_cn"] = state_cn
         cr["clothing_tags"] = cloth
+        cr["gender"] = _norm_gender(c)
     scene = _remove_cjk_tokens(prompt.get("scene_tags", ""))
     prompt["scene_tags"] = scene
     tail = _remove_cjk_tokens(prompt.get("quality_tail") or "")

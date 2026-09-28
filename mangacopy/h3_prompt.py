@@ -277,8 +277,20 @@ def _character_tags(settings: dict, seg_md: str, seg_pages: list) -> tuple:
                 f"- [涉及页 {sorted(set(seg_pages) & set(pages))}] {st.get('state_cn', '')} "
                 f"| tags: {st.get('danbooru_tags', '')}"
             )
+        anc = c.get("anchor") or {}
+        if isinstance(anc, dict) and anc.get("character_name"):
+            orig = f" from {anc['anime_origin']}" if anc.get("anime_origin") else ""
+            anc_info = f"{anc['character_name']}{orig}"
+        elif isinstance(anc, str) and anc.strip():
+            anc_info = anc.strip()
+        else:
+            anc_info = "（未指定）"
+        gender_str = "Female (女性)" if c.get("gender") == "female" else "Male (男性)"
+
         blocks.append(
-            f"### {c['name']}\n"
+            f"### {c['name']} (Gender: {gender_str})\n"
+            f"- Anchored Classic Anime Character: {anc_info}\n"
+            f"- Detailed Appearance (MUST strictly follow, never swap or omit): {c.get('appearance_cn', '')}\n"
             f"- Appearance tags: {c.get('danbooru_tags', '')}\n"
             + ("\n".join(states) if states else "- Clothing: （未定义）")
         )
