@@ -19,7 +19,7 @@ LLM_SESSION_POOL = 2  # 两台 DGX：每个独立单元（页/块/分镜/段）�
                       # 单元内粘同一台机器，单元间轮询分散到两台（2026-09-27 用户指示）
 LLM_MAX_CONCURRENT = 2  # 用户 2026-09-27：spark 硬件并行能力弱，两台各扛一个并发，
                          # 全局 LLM 并发连接硬上限=2，llm.chat 内信号量强制执行
-LLM_MAX_TOKENS = 8000
+LLM_MAX_TOKENS = 16000
 LLM_RETRY = 3
 
 # ComfyUI

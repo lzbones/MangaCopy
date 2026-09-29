@@ -718,7 +718,8 @@ def _run_l0(proj, sel, s1_map, sessions, log, chunk_size, concurrency):
             data, err = _json_call(
                 f"s2 L0 chunk {rng}", prompt,
                 lambda d: _validate_settings(d, require_coverage=False),
-                sessions[i % len(sessions)], log
+                sessions[i % len(sessions)], log,
+                max_tokens=16000,
             )
             if data is None:
                 _set_item(proj, item, "failed", {"error": err})
