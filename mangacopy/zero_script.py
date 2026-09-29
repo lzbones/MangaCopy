@@ -70,17 +70,39 @@ def _unwrap_settings_dict(data):
             data = data[0]
         elif len(data) > 0:
             if all(isinstance(x, dict) and "name" in x for x in data):
-                return {"characters": data, "environments": [], "style_notes": ""}
-            for x in data:
-                if isinstance(x, dict) and "characters" in x:
-                    return x
-    if isinstance(data, dict) and "characters" not in data:
-        for k in ("settings", "data", "result", "output", "chunk", "content"):
-            if isinstance(data.get(k), dict) and "characters" in data[k]:
-                return data[k]
-        for k, v in data.items():
-            if isinstance(v, dict) and "characters" in v:
-                return v
+                data = {"characters": data, "environments": [], "style_notes": ""}
+            else:
+                for x in data:
+                    if isinstance(x, dict):
+                        unwrapped = _unwrap_settings_dict(x)
+                        if isinstance(unwrapped, dict) and "characters" in unwrapped:
+                            data = unwrapped
+                            break
+    if isinstance(data, dict):
+        lowered_keys = {k.lower(): k for k in list(data.keys())}
+        for std_key, aliases in [
+            ("characters", ("characters", "character", "chars", "char_list", "character_list")),
+            ("environments", ("environments", "environment", "envs", "scenes", "scene_list")),
+            ("style_notes", ("style_notes", "style_note", "style", "art_style", "notes")),
+        ]:
+            if std_key not in data:
+                for alias in aliases:
+                    if alias in lowered_keys:
+                        data[std_key] = data.pop(lowered_keys[alias])
+                        break
+        if "characters" not in data:
+            for k, v in list(data.items()):
+                if isinstance(v, dict):
+                    unwrapped = _unwrap_settings_dict(v)
+                    if isinstance(unwrapped, dict) and "characters" in unwrapped:
+                        return unwrapped
+                elif isinstance(v, list) and v and all(isinstance(x, dict) and "name" in x for x in v):
+                    data["characters"] = v
+                    break
+        if "environments" not in data or not isinstance(data.get("environments"), list):
+            data["environments"] = []
+        if "style_notes" not in data or not isinstance(data.get("style_notes"), str):
+            data["style_notes"] = str(data.get("style_notes") or "")
     return data
 
 
