@@ -1240,7 +1240,7 @@ def run(proj: Project, **opts) -> bool:
         log.error("no pages to process")
         return False
 
-    chunk_size = max(1, int(opts.get("chunk", 2)))
+    chunk_size = max(1, int(opts.get("chunk", 4)))
     concurrency = max(1, int(opts.get("concurrency", 2)))
     sessions = llm.new_session_pool()  # one per DGX; unit-level affinity
     s2_dir = proj.out_dir("s2")
