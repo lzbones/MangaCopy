@@ -112,48 +112,23 @@ def run(proj: Project, **opts) -> bool:
     dryrun = bool(opts.get("dryrun"))
     out_dir = proj.out_dir("s7")
 
-    # ---- pipeline consumption (2026-09-28 user 统筹 directive) ----
-    # s7 launches as soon as s5's beats exist; wait for each s6 prompt to
-    # appear (s6 runs in parallel) instead of blocking on the s6 stage
-    # barrier, so the PRO 6000 produces videos while spark keeps working.
+    # ---- stream pipeline consumption (2026-09-29 user 统筹 directive) ----
+    # s7 launches as soon as s5's beats exist; instead of waiting for ALL s6 prompts
+    # to finish before rendering, consume each segment IMMEDIATELY as its prompt appears.
+    # PRO 6000 renders seg_N while Spark writes seg_N+1, achieving zero pipeline bubble.
     beats_path = proj.out_dir("s5") / "00_beats.json"
-    expected: set = set()
-    if beats_path.exists():
-        expected = {f"seg_{int(s['seg']):02d}"
-                    for s in json.loads(beats_path.read_text(encoding="utf-8"))["segments"]}
-        deadline = time.time() + 5400  # 90 min wait cap
-        while True:
-            have = {p.stem for p in proj.out_dir("s6").glob("seg_*.json")}
-            missing = expected - have
-            if not missing:
-                break
-            if proj.stage_status("s6") in ("completed", "failed") or time.time() > deadline:
-                log.warning(f"s7: proceeding without {sorted(missing)} "
-                            f"(s6 terminal or wait expired) — stage will fail "
-                            f"so the DAG retries the missing segments")
-                break
-            log.info(f"s7: waiting for s6 segments {sorted(missing)} (s6 in progress)")
-            time.sleep(60)
-
-    specs = _segment_specs(proj)
-    if not specs:
-        log.error("no s6 segment json found in s6_h3/")
+    if not beats_path.exists():
+        log.error("no s5 beats (00_beats.json) found; run s5 first")
         return False
 
-    todo, skipped = [], []
-    for seg in specs:
-        seg_key = f"seg_{int(seg['seg']):02d}"
-        if (proj.item_status("s7", seg_key) == "completed"
-                and (out_dir / f"{seg_key}.mp4").exists()):
-            skipped.append(seg_key)
-        else:
-            todo.append(seg)
-    if skipped:
-        log.info(f"skip completed segments: {skipped}")
+    beats_data = json.loads(beats_path.read_text(encoding="utf-8"))
+    seg_list = sorted(beats_data.get("segments", []), key=lambda s: int(s["seg"]))
+    expected = {f"seg_{int(s['seg']):02d}" for s in seg_list}
+    if not seg_list:
+        log.error("no segments found in 00_beats.json")
+        return False
 
-    if todo and not dryrun:
-        # Preflight (DESIGN §8-6 subset applicable to s7: this stage makes no
-        # LLM calls and no ffmpeg calls; LLM/ffmpeg checks are skipped):
+    if not dryrun:
         try:
             health = comfy.health()
             queue = comfy.queue_status()
@@ -167,19 +142,44 @@ def run(proj: Project, **opts) -> bool:
             return False
 
     ok = fail = 0
-    for seg in todo:
-        seg_key = f"seg_{int(seg['seg']):02d}"
-        if seg.get("_bad"):
-            log.error(f"{seg_key}: unreadable s6 json ({seg['_file']}): {seg['_bad']}")
-            proj.set_item("s7", seg_key, "failed", {"error": f"bad json: {seg['_bad']}"})
+    skipped = []
+    s6_dir = proj.out_dir("s6")
+
+    for beat_item in seg_list:
+        seg_no = int(beat_item["seg"])
+        seg_key = f"seg_{seg_no:02d}"
+
+        # 1. Skip already-completed segment
+        if (proj.item_status("s7", seg_key) == "completed"
+                and (out_dir / f"{seg_key}.mp4").exists()):
+            skipped.append(seg_key)
+            continue
+
+        # 2. Stream wait for THIS segment's s6 prompt files (prompt-on-demand)
+        json_path = s6_dir / f"{seg_key}.json"
+        txt_path = s6_dir / f"{seg_key}.txt"
+        seg_deadline = time.time() + 3600  # 60 min cap per segment
+        while not (json_path.exists() and txt_path.exists()) and time.time() < seg_deadline:
+            if proj.stage_status("s6") in ("completed", "failed"):
+                if json_path.exists() and txt_path.exists():
+                    break
+                log.warning(f"{seg_key}: s6 stage already {proj.stage_status('s6')} but prompt files missing")
+                break
+            log.info(f"s7 stream: waiting for {seg_key} prompt (s6 in progress)...")
+            time.sleep(10)
+
+        if not (json_path.exists() and txt_path.exists()):
+            log.error(f"{seg_key}: missing H3 prompt files in s6_h3/")
+            proj.set_item("s7", seg_key, "failed", {"error": "missing s6 prompt"})
             fail += 1
             continue
-        txt_path = proj.out_dir("s6") / f"{seg_key}.txt"
+
         try:
+            seg = json.loads(json_path.read_text(encoding="utf-8"))
             prompt_text = txt_path.read_text(encoding="utf-8")
-        except OSError as exc:
-            log.error(f"{seg_key}: missing H3 prompt file {txt_path}: {exc}")
-            proj.set_item("s7", seg_key, "failed", {"error": f"missing prompt: {exc}"})
+        except Exception as exc:
+            log.error(f"{seg_key}: unreadable prompt files: {exc}")
+            proj.set_item("s7", seg_key, "failed", {"error": f"bad prompt files: {exc}"})
             fail += 1
             continue
 
@@ -249,7 +249,7 @@ def run(proj: Project, **opts) -> bool:
         log.error(f"s7: {len(expected) - ok - len(skipped)} expected segment(s) "
                   f"missing — failing the stage for a DAG retry")
         return False
-    return ok == len(todo)
+    return fail == 0
 
 
 def _pick_video(paths: list):
