@@ -64,6 +64,26 @@ def _load_json(path):
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def _unwrap_settings_dict(data):
+    if isinstance(data, list):
+        if len(data) == 1 and isinstance(data[0], dict):
+            data = data[0]
+        elif len(data) > 0:
+            if all(isinstance(x, dict) and "name" in x for x in data):
+                return {"characters": data, "environments": [], "style_notes": ""}
+            for x in data:
+                if isinstance(x, dict) and "characters" in x:
+                    return x
+    if isinstance(data, dict) and "characters" not in data:
+        for k in ("settings", "data", "result", "output", "chunk", "content"):
+            if isinstance(data.get(k), dict) and "characters" in data[k]:
+                return data[k]
+        for k, v in data.items():
+            if isinstance(v, dict) and "characters" in v:
+                return v
+    return data
+
+
 # ---- LLM call with one schema-failure retry ---------------------------------
 
 def _json_call(label, prompt, validator, session_id, log, max_tokens=None,
@@ -91,6 +111,8 @@ def _json_call(label, prompt, validator, session_id, log, max_tokens=None,
                            session_id=session_id, max_tokens=max_tokens,
                            timeout=_CALL_TIMEOUT)
             data = llm.extract_json(raw)
+            if "L0" in label:
+                data = _unwrap_settings_dict(data)
         except llm.LLMError as exc:
             errs = [f"LLM 调用或 JSON 解析失败: {exc}"]
             log.warning(f"{label}: attempt {attempt + 1} failed: {errs[0]}")
@@ -190,15 +212,6 @@ def _validate_settings(data, pages=None, require_coverage=True):
         errs += _coverage_errors(data, pages)
     return errs
 
-
-def _unwrap_settings_dict(data):
-    if isinstance(data, list) and len(data) == 1 and isinstance(data[0], dict):
-        data = data[0]
-    if isinstance(data, dict) and "characters" not in data:
-        for k, v in data.items():
-            if isinstance(v, dict) and "characters" in v:
-                return v
-    return data
 
 
 def _validate_settings_struct(data):
