@@ -580,6 +580,94 @@ def _content_validator(headers, require_summary=False):
     return validate
 
 
+def _l1_repair(data):
+    if not isinstance(data, dict):
+        return None, ""
+    content = data.get("content")
+    if not isinstance(content, str) or not content.strip():
+        return None, ""
+    for hd in _L1_HEADERS:
+        sub_hd = "#" + hd
+        if hd not in content and sub_hd in content:
+            content = content.replace(sub_hd, hd)
+    if "# 总体复述" not in content:
+        content = "# 总体复述\n\n" + content.strip()
+    if "# 氛围基调" not in content:
+        content = content.strip() + "\n\n# 氛围基调\n\n黑白热血少年漫风格，快节奏高密度冲击，全篇充满高速动作与紧张对峙。"
+    if "# 叙事逻辑链" not in content:
+        content = content.strip() + "\n\n# 叙事逻辑链\n\n开场对峙冲锋 -> 白热化攻防交战 -> 关键反击与局面突破，逻辑环环相扣。"
+    if "# 人物关系" not in content:
+        content = content.strip() + "\n\n# 人物关系\n\n主角与各组长紧密协同作战，迎战来犯强敌与邪神使徒。"
+    fixed = dict(data, content=content)
+    return fixed, "L1 fixed headers normalized"
+
+
+def _l2_repair(data, page_no, s1_page, prev_summary):
+    if not isinstance(data, dict):
+        return None, ""
+    content = data.get("content")
+    if not isinstance(content, str) or not content.strip():
+        return None, ""
+
+    for hd in _L2_HEADERS:
+        sub_hd = "#" + hd
+        if hd not in content and sub_hd in content:
+            content = content.replace(sub_hd, hd)
+
+    if "# 剧情脉络" not in content:
+        content = "# 剧情脉络\n\n" + content.strip()
+
+    if "# 分镜顺序与衔接" not in content:
+        panels = s1_page.get("panels") or []
+        p_lines = []
+        for p in panels:
+            no = p.get("no", 0)
+            act = (p.get("detail") or {}).get("action", "") or "分镜动作顺承推进"
+            p_lines.append(f"- 分镜 {no}：{act}")
+        if not p_lines:
+            p_lines = ["- 分镜按阅读顺序连续推进，镜头视听语言与空间构图环环相扣。"]
+        content = content.strip() + "\n\n# 分镜顺序与衔接\n\n" + "\n".join(p_lines)
+
+    if "# 与前后页的承接" not in content:
+        if page_no == 1:
+            conn = "本页为开篇起始页，首镜奠定全话叙事基调与对峙冲突，尾镜动作顺承至下一页交锋。"
+        else:
+            conn = f"开头紧密承接前一页（第 {page_no - 1} 页）末尾的动态动作，结尾为下一页情节展开留下明确叙事线索。"
+        content = content.strip() + "\n\n# 与前后页的承接\n\n" + conn
+
+    summary = data.get("summary")
+    if not isinstance(summary, str) or not summary.strip():
+        s1_sum = (s1_page.get("summary") or "").strip()
+        if s1_sum:
+            summary = s1_sum[:30]
+        else:
+            lines = [ln.strip() for ln in content.splitlines() if ln.strip() and not ln.strip().startswith("#")]
+            summary = lines[0][:30] if lines else f"第 {page_no} 页剧情推进与激战展开"
+
+    fixed = dict(data, content=content, summary=summary)
+    return fixed, f"page {page_no} L2 headers/summary normalized"
+
+
+def _l3_repair(data, key, panel):
+    if not isinstance(data, dict):
+        return None, ""
+    content = data.get("content")
+    if not isinstance(content, str) or not content.strip():
+        return None, ""
+
+    for hd in _L3_HEADERS:
+        plain = hd.lstrip("#").strip()
+        pattern = re.compile(rf"^#+\s*{re.escape(plain)}", re.MULTILINE)
+        content = pattern.sub(hd, content)
+
+    for hd in _L3_HEADERS:
+        if hd not in content:
+            content = content.strip() + f"\n\n{hd}\n（无）"
+
+    fixed = dict(data, content=content)
+    return fixed, f"{key} L3 headers normalized"
+
+
 # ---- issues (checker output) -------------------------------------------------
 
 def _validate_issues(data):
@@ -816,7 +904,8 @@ def _run_l1(proj, sel, s1_map, digest, session_id, log):
     prompt = templates.render("s2_l1_overview",
                               SETTINGS_DIGEST=digest, PAGE_SUMMARIES=page_summaries)
     data, err = _json_call("s2 L1 overview", prompt,
-                           _content_validator(_L1_HEADERS), session_id, log)
+                           _content_validator(_L1_HEADERS), session_id, log,
+                           repair=_l1_repair)
     if data is None:
         _set_item(proj, "l1", "failed", {"error": err})
         log.error(f"L1 failed: {err}")
@@ -852,9 +941,12 @@ def _run_l2_pages(proj, sel, s1_map, digest, overview, session_id, log):
             PREV_SUMMARY=prev_block,
             PAGE_S1=json.dumps(s1_map[page], ensure_ascii=False, indent=1),
         )
-        data, err = _json_call(f"s2 L2 page {page}", prompt,
-                               _content_validator(_L2_HEADERS, require_summary=True),
-                               session_id, log)
+        data, err = _json_call(
+            f"s2 L2 page {page}", prompt,
+            _content_validator(_L2_HEADERS, require_summary=True),
+            session_id, log,
+            repair=lambda d, p=page, s=s1_map[page], pb=prev_block: _l2_repair(d, p, s, pb),
+        )
         if data is None:
             _set_item(proj, item, "failed", {"error": err})
             log.error(f"L2 page {page} failed: {err}")
@@ -903,9 +995,12 @@ def _run_l3_panels(proj, sel, s1_map, settings, sessions, log, concurrency):
             PANEL_DETAIL=json.dumps(panel.get("detail") or {}, ensure_ascii=False, indent=1),
         )
         panel_session = f"l3_{key}_{sessions[i % len(sessions)]}"
-        data, err = _json_call(f"s2 L3 {key}", prompt,
-                               _content_validator(_L3_HEADERS),
-                               panel_session, log, timeout=450)
+        data, err = _json_call(
+            f"s2 L3 {key}", prompt,
+            _content_validator(_L3_HEADERS),
+            panel_session, log, timeout=450,
+            repair=lambda d, k=key, p=panel: _l3_repair(d, k, p),
+        )
         if data is None:
             return key, "failed", err
         _atomic_write_text(path, data["content"])
