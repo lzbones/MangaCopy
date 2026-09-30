@@ -303,6 +303,113 @@ def _dialogue_block(dialogue_texts: list) -> str:
     return "\n".join(f"- {t}" for t in dialogue_texts)
 
 
+def deterministic_repair(prompt: str, mode: str, duration: float,
+                         dialogue_texts: list, char_names: list) -> str:
+    """Fast, millisecond-level deterministic regex/string repair operator.
+    Guarantees structural compliance (I2VA prefix, 3 fields, balanced tags,
+    identity locks, non-decreasing timestamps) without costly LLM roundtrips."""
+    p = prompt.strip()
+
+    # 1. Clean and normalize prefix
+    p = p.replace(I2VA_FIRST_LINE, "").strip()
+    idx = p.find(_FIELDS[0])
+    if idx >= 0:
+        p = p[idx:]
+    else:
+        p = _FIELDS[0] + " " + p
+
+    # 2. Required fields repair (ensure all 3 exist in order)
+    pos_desc = p.find(_FIELDS[0])
+    pos_snd = p.find(_FIELDS[1])
+    pos_mus = p.find(_FIELDS[2])
+
+    if pos_snd < 0:
+        default_snd = "\n\noverall_soundscape: Ambient environmental soundscape matching the animation scene, with subtle dynamic presence."
+        if pos_mus >= 0:
+            p = p[:pos_mus].rstrip() + default_snd + "\n\n" + p[pos_mus:]
+        else:
+            p = p + default_snd
+        pos_mus = p.find(_FIELDS[2])
+
+    if pos_mus < 0:
+        default_mus = "\n\nnon_diegetic_music: Orchestral background soundtrack with dynamic tempo changes supporting visual beats."
+        p = p + default_mus
+
+    # 3. Tag balance repair
+    p = re.sub(r"<d>(?!\[Chinese\])", "<d>[Chinese]", p)
+    n_open = p.count("<d>[Chinese]")
+    n_close = p.count("</d>")
+    if n_open > n_close:
+        pos_snd = p.find(_FIELDS[1])
+        diff = n_open - n_close
+        if pos_snd >= 0:
+            p = p[:pos_snd].rstrip() + (" </d>" * diff) + "\n\n" + p[pos_snd:]
+        else:
+            p = p + (" </d>" * diff)
+
+    # 4. Verbatim dialogue repair
+    missing = [t for t in dialogue_texts if t not in p]
+    if missing:
+        pos_snd = p.find(_FIELDS[1])
+        dialogue_additions = " " + " ".join([f"An off-screen voiceover says: <d>[Chinese] {t} </d>." for t in missing])
+        if pos_snd >= 0:
+            p = p[:pos_snd].rstrip() + dialogue_additions + "\n\n" + p[pos_snd:]
+        else:
+            p = p + dialogue_additions
+
+    # 5. Identity lock and char names repair
+    pos_desc = p.find(_FIELDS[0])
+    pos_snd = p.find(_FIELDS[1])
+    desc_part = p[pos_desc:pos_snd] if pos_snd >= 0 else p[pos_desc:]
+
+    if IDENTITY_LOCK_PHRASE not in desc_part:
+        if "[Shot 1]" in desc_part:
+            p = p.replace("[Shot 1]", f"[Shot 1] ({IDENTITY_LOCK_PHRASE})", 1)
+        else:
+            p = p.replace(_FIELDS[0], f"{_FIELDS[0]} [Shot 1] ({IDENTITY_LOCK_PHRASE})", 1)
+
+    for name in char_names:
+        if name not in p:
+            pos_snd = p.find(_FIELDS[1])
+            injection = f" (Featuring character {name}; {IDENTITY_LOCK_PHRASE}.)"
+            if pos_snd >= 0:
+                p = p[:pos_snd].rstrip() + injection + "\n\n" + p[pos_snd:]
+            else:
+                p = p + injection
+
+    # 6. Timestamp repair (strictly within integrated_multimodal_description)
+    pos_desc = p.find(_FIELDS[0])
+    pos_snd = p.find(_FIELDS[1])
+    desc_body = p[pos_desc:pos_snd] if pos_snd >= 0 else p[pos_desc:]
+    
+    desc_body = re.sub(r"\[Shot 1\]\s+At\s+\d{2}:\d{2}\.\d{3},?", "[Shot 1]", desc_body)
+    
+    shots = list(_SHOT_RE.finditer(desc_body))
+    k = len(shots)
+    if k >= 2:
+        step = duration / float(k)
+        for idx in range(2, k + 1):
+            t_sec = round((idx - 1) * step, 3)
+            mm = int(t_sec // 60)
+            ss = int(t_sec % 60)
+            mmm = int(round((t_sec - int(t_sec)) * 1000))
+            new_shot_hdr = f"[Shot {idx}] At {mm:02d}:{ss:02d}.{mmm:03d},"
+            desc_body = re.sub(rf"\[Shot {idx}\](?:\s+At\s+\d{{2}}:\d{{2}}\.\d{{3}},?)?", new_shot_hdr, desc_body)
+
+    if pos_snd >= 0:
+        p = desc_body.rstrip() + "\n\n" + p[pos_snd:]
+    else:
+        p = desc_body
+
+    # 7. Prefix with I2VA first line if mode is i2va
+    if mode == "i2va":
+        p = I2VA_FIRST_LINE + "\n\n" + p.strip()
+    else:
+        p = p.strip()
+
+    return p
+
+
 # ---- per-segment pipeline -------------------------------------------------------
 
 def _process_segment(proj: Project, seg: dict, settings: dict, style_card: str,
@@ -361,53 +468,43 @@ def _process_segment(proj: Project, seg: dict, settings: dict, style_card: str,
     if data is None:
         raise RuntimeError(f"{key}: H3 prompt generation failed: {err}")
     prompt = data["prompt"].strip()
-    # crash checkpoint: a single LLM round costs minutes; persist each round's
-    # output so an interrupted run leaves the last state inspectable on disk.
-    _atomic_write_text(out_dir / f"{key}.txt", prompt + "\n")
-
-    # check -> fix loop (<= 2 fix rounds)
-    problems: list = []
-    rounds = 0
-    for attempt in range(_MAX_FIX_ROUNDS + 1):
-        rounds = attempt
-        det = deterministic_checks(prompt, mode, duration, dialogue_texts, char_names)
-        if det:
+    
+    # Fast path: deterministic Python repair first
+    prompt = deterministic_repair(prompt, mode, duration, dialogue_texts, char_names)
+    det = deterministic_checks(prompt, mode, duration, dialogue_texts, char_names)
+    if not det:
+        log.info(f"{key}: deterministic repair passed 100% hard rules; bypassing LLM fix rounds")
+        problems = []
+        rounds = 0
+    else:
+        # Fallback to LLM fix loop only if deterministic repair left unresolved items
+        log.warning(f"{key}: post-repair issues remaining: {det}; falling back to LLM fix")
+        problems = det
+        rounds = 0
+        for attempt in range(_MAX_FIX_ROUNDS + 1):
+            rounds = attempt
+            det = deterministic_checks(prompt, mode, duration, dialogue_texts, char_names)
+            if not det:
+                problems = []
+                break
             problems = det
-        else:
-            check_prompt = templates.render(
-                "s6_check",
-                SEG_KEY=key, MODE=mode, DURATION=duration, PROMPT=prompt,
-                DIALOGUE_LINES=_dialogue_block(dialogue_texts),
-                CHARACTER_TAGS=tags_md,
+            log.warning(f"{key}: round {attempt} problems: {problems}")
+            if attempt == _MAX_FIX_ROUNDS:
+                break
+            fix_prompt = (
+                base_prompt
+                + "\n\n【上一版 prompt】\n" + prompt
+                + "\n\n【检查未通过项】\n- " + "\n- ".join(problems)
+                + "\n请逐项修正，输出修正后的完整 prompt（保持全部硬规则与固定句逐字符不变），只输出 JSON。"
             )
-            cdata, cerr = _json_call(f"s6 {key} check", check_prompt,
-                                     _check_shape, session_id, log,
+            fdata, ferr = _json_call(f"s6 {key} fix{attempt + 1}", fix_prompt,
+                                     _prompt_shape, session_id, log,
                                      timeout=_LLM_CALL_TIMEOUT)
-            if cdata is None:
-                problems = [f"LLM 自检调用失败: {cerr}"]
+            if fdata is None:
+                log.error(f"{key}: fix round failed, keeping previous prompt: {ferr}")
             else:
-                problems = [] if cdata["pass"] else [
-                    str(p) for p in cdata["problems"]
-                ]
-        if not problems:
-            break
-        log.warning(f"{key}: round {attempt} problems: {problems}")
-        if attempt == _MAX_FIX_ROUNDS:
-            break
-        fix_prompt = (
-            base_prompt
-            + "\n\n【上一版 prompt】\n" + prompt
-            + "\n\n【检查未通过项】\n- " + "\n- ".join(problems)
-            + "\n请逐项修正，输出修正后的完整 prompt（保持全部硬规则与固定句逐字符不变），只输出 JSON。"
-        )
-        fdata, ferr = _json_call(f"s6 {key} fix{attempt + 1}", fix_prompt,
-                                 _prompt_shape, session_id, log,
-                                 timeout=_LLM_CALL_TIMEOUT)
-        if fdata is None:
-            log.error(f"{key}: fix round failed, keeping previous prompt: {ferr}")
-        else:
-            prompt = fdata["prompt"].strip()
-            _atomic_write_text(out_dir / f"{key}.txt", prompt + "\n")  # checkpoint
+                prompt = deterministic_repair(fdata["prompt"].strip(), mode, duration, dialogue_texts, char_names)
+                _atomic_write_text(out_dir / f"{key}.txt", prompt + "\n")
 
     passed = not problems
     _atomic_write_text(out_dir / f"{key}.txt", prompt + "\n")

@@ -16,5 +16,6 @@
 - 参考漫画为黑白印刷，按画面需要包含 greyscale / monochrome；
 - 15~35 个 tag 为宜，按上述类别顺序排列；不要换行，不要编号。
 
-只输出 JSON（不要任何其他文字）：
+【输出效率规范】
+请直接输出 JSON，不要输出任何思维链推演、前言或总结性文字：
 {"scene_tags": "<逗号分隔的英文 tag 串>", "quality_tail": ",masterpiece,best quality,"}

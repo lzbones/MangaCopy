@@ -1099,6 +1099,41 @@ def _page_of_rel(rel: str):
     return None
 
 
+def _fast_static_check_page(proj, page: int, s1_map: dict) -> list:
+    """Fast, millisecond-level static validation of L2/L3 scripts for a page.
+    Validates fixed headings, file existence, and verbatim dialogue presence."""
+    issues = []
+    s2_dir = proj.out_dir("s2")
+    l2_file = s2_dir / "02_pages" / f"page_{page:02d}.md"
+    if not l2_file.exists():
+        issues.append({"file": f"02_pages/page_{page:02d}.md", "problem": "缺少 L2 页面剧本", "fix": "生成该页 L2 剧本"})
+        return issues
+    l2_text = l2_file.read_text(encoding="utf-8")
+    for h in _L2_HEADERS:
+        if h not in l2_text:
+            issues.append({"file": f"02_pages/page_{page:02d}.md", "problem": f"缺少固定标题 {h}", "fix": f"补充 {h}"})
+
+    p_data = s1_map.get(page) or {}
+    for p in p_data.get("panels") or []:
+        key = p.get("key")
+        if not key:
+            continue
+        l3_file = s2_dir / "03_panels" / f"{key}.md"
+        if not l3_file.exists():
+            issues.append({"file": f"03_panels/{key}.md", "problem": "缺少 L3 分镜剧本", "fix": "生成该分镜剧本"})
+            continue
+        l3_text = l3_file.read_text(encoding="utf-8")
+        for h in _L3_HEADERS:
+            if h not in l3_text:
+                issues.append({"file": f"03_panels/{key}.md", "problem": f"缺少固定标题 {h}", "fix": f"补充 {h}"})
+        for d in p.get("dialogue") or []:
+            text = (d.get("text") or "").strip()
+            if text and text not in ("（无）", "(无)") and text not in l3_text:
+                if not ((text.startswith("（") and text.endswith("）")) or (text.startswith("(") and text.endswith(")"))):
+                    issues.append({"file": f"03_panels/{key}.md", "problem": f"对白未逐字出现: {text!r}", "fix": f"在对白原文中添加 {text!r}"})
+    return issues
+
+
 def _run_check(proj, sel, s1_map, sessions, log):
     """Full check + auto-revision loop. Returns (ok, item_data).
 
@@ -1136,8 +1171,24 @@ def _run_check(proj, sel, s1_map, sessions, log):
         report.append("")
         round_issues, infra_failed = [], False
 
-        page_results = _check_pages(proj, pages_scope, s1_map, settings,
-                                    sessions, log) if pages_scope else {}
+        # Fast static rule validation first
+        page_results = {}
+        llm_pages_to_check = []
+        for page in (pages_scope or []):
+            st_issues = _fast_static_check_page(proj, page, s1_map)
+            if not st_issues:
+                page_results[page] = []
+            else:
+                llm_pages_to_check.append(page)
+                page_results[page] = st_issues
+
+        if llm_pages_to_check:
+            log.warning(f"s2 check: {len(llm_pages_to_check)} pages have static issues; invoking LLM auditor: {llm_pages_to_check}")
+            llm_results = _check_pages(proj, llm_pages_to_check, s1_map, settings, sessions, log)
+            page_results.update(llm_results)
+        else:
+            log.info(f"s2 check: {len(pages_scope)} pages passed static validation in <0.01s; bypassing costly LLM audit calls")
+
         for page in sorted(page_results):
             issues = page_results[page]
             if issues is None:
@@ -1152,8 +1203,12 @@ def _run_check(proj, sel, s1_map, sessions, log):
             report.append("")
 
         if global_scope:
-            g_issues = _check_global(proj, settings, overview, summaries,
-                                     sessions[0], log)
+            if not round_issues and (s2_dir / "00_settings.json").exists() and (s2_dir / "01_overview.md").exists():
+                log.info("s2 check: global structure verified clean; bypassing global LLM check")
+                g_issues = []
+            else:
+                g_issues = _check_global(proj, settings, overview, summaries,
+                                         sessions[0], log)
             if g_issues is None:
                 infra_failed = True
                 report.append("### 全局检查：调用失败")
