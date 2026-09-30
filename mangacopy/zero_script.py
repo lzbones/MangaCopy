@@ -118,13 +118,14 @@ def _unwrap_settings_dict(data):
 # ---- LLM call with one schema-failure retry ---------------------------------
 
 def _json_call(label, prompt, validator, session_id, log, max_tokens=None,
-               repair=None):
+               repair=None, timeout=None):
     """json_mode call -> robust JSON extraction -> schema validation; on
     failure retry once with the error list appended. `repair(data)` may return
     (fixed_data, note) to salvage outputs that only fail on coverage/interval
     sloppiness; the repaired value must pass validation. Returns (data, None)
     or (None, error_message)."""
     errs = []
+    effective_timeout = timeout if timeout is not None else _CALL_TIMEOUT
     for attempt in range(2):
         p = prompt
         if attempt:
@@ -140,7 +141,7 @@ def _json_call(label, prompt, validator, session_id, log, max_tokens=None,
         try:
             raw = llm.chat([{"role": "user", "content": p}], json_mode=True,
                            session_id=session_id, max_tokens=max_tokens,
-                           timeout=_CALL_TIMEOUT)
+                           timeout=effective_timeout)
             data = llm.extract_json(raw)
             if "L0" in label:
                 data = _unwrap_settings_dict(data)
@@ -901,9 +902,10 @@ def _run_l3_panels(proj, sel, s1_map, settings, sessions, log, concurrency):
             PAGE_L2=l2_text,
             PANEL_DETAIL=json.dumps(panel.get("detail") or {}, ensure_ascii=False, indent=1),
         )
+        panel_session = f"l3_{key}_{sessions[i % len(sessions)]}"
         data, err = _json_call(f"s2 L3 {key}", prompt,
                                _content_validator(_L3_HEADERS),
-                               sessions[i % len(sessions)], log)
+                               panel_session, log, timeout=450)
         if data is None:
             return key, "failed", err
         _atomic_write_text(path, data["content"])

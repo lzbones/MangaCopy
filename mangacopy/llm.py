@@ -49,34 +49,31 @@ _LLM_SEM = threading.Semaphore(config.LLM_MAX_CONCURRENT)
 # distribute these to their units for stickiness. _acquire_session pairs the
 # connection slot with a session: concurrent calls NEVER share one, so the two
 # in-flight requests always land on different DGX machines.
-# (populated right after new_session_id is defined, below)
-_SESSION_POOL: list = []
+def new_session_id() -> str:
+    return uuid.uuid4().hex
+
+
 _SESS_LOCK = threading.Lock()
 _BUSY_SESSIONS: set = set()
 
 
 def new_session_pool(n: int | None = None) -> list:
-    """The process-wide session pair (SAME list every call — one session per
-    DGX machine). Stages call this once and assign sessions[i % len] to each
-    independent unit for stickiness; when two same-session units collide, the
-    slot allocator lends the other machine's session to the second call."""
-    if n is not None and n != len(_SESSION_POOL):
-        # explicit request for a different size: fresh independent ids
-        return [new_session_id() for _ in range(max(1, int(n)))]
-    return list(_SESSION_POOL)
+    """Return a fresh pool of n (default config.LLM_SESSION_POOL) distinct session IDs.
+    Generating fresh session IDs per stage ensures LiteLLM router distributes traffic
+    dynamically across both DGX machines rather than pinning all tasks to a single static hash."""
+    count = max(1, int(n)) if n is not None else max(1, config.LLM_SESSION_POOL)
+    return [new_session_id() for _ in range(count)]
 
 
 def _acquire_session(preferred: str | None = None) -> str:
-    """Block for a connection slot, then pick a session: the caller's locked
-    session if free (unit stickiness), else a free pool session. Guarantees
-    two concurrent calls hold different sessions (= different machines)."""
+    """Block for an LLM concurrency slot (capped at config.LLM_MAX_CONCURRENT=2).
+    Concurrent calls hold distinct session IDs so LiteLLM maps them to different DGX machines."""
     _LLM_SEM.acquire()
     with _SESS_LOCK:
         if preferred is not None and preferred not in _BUSY_SESSIONS:
             sess = preferred
         else:
-            free = [s for s in _SESSION_POOL if s not in _BUSY_SESSIONS]
-            sess = free[0] if free else (preferred or new_session_id())
+            sess = new_session_id()
         _BUSY_SESSIONS.add(sess)
     return sess
 
@@ -89,21 +86,6 @@ def _release_session(sess: str) -> None:
 
 class LLMError(Exception):
     pass
-
-
-def new_session_id() -> str:
-    return uuid.uuid4().hex
-
-
-_SESSION_POOL.extend(new_session_id() for _ in range(max(1, config.LLM_SESSION_POOL)))
-
-
-def new_session_pool(n: int | None = None) -> list:
-    """The process-wide session pair (SAME list every call — one session per
-    DGX machine). Stages call this once and assign sessions[i % len] to each
-    independent unit for stickiness; when two same-session units collide, the
-    slot allocator lends the other machine's session to the second call."""
-    return [new_session_id() for _ in range(max(1, int(n)))] if n is not None else list(_SESSION_POOL)
 
 
 def chat(
@@ -139,12 +121,17 @@ def _chat_locked(
     session_id: str | None = None,
 ) -> str:
     url = f"{config.LLM_BASE_URL}/chat/completions"
-    headers = {"Authorization": f"Bearer {config.LLM_API_KEY}"}
+    active_session_id = session_id or new_session_id()
+    headers = {
+        "Authorization": f"Bearer {config.LLM_API_KEY}",
+        "x-litellm-session-id": active_session_id,
+    }
     payload = {
         "model": config.LLM_MODEL,
         "messages": messages,
         "max_tokens": config.LLM_MAX_TOKENS if max_tokens is None else max_tokens,
-        "metadata": {"session_id": session_id or new_session_id()},
+        "session_id": active_session_id,
+        "metadata": {"session_id": active_session_id},
         # Streaming (2026-09-28, user diagnosis of GB10 hardware): the endpoint
         # is a DGX Spark (GB10) with limited compute — large prompts take tens
         # of minutes of prefill+generation. Non-streaming requests made the
@@ -175,6 +162,11 @@ def _chat_locked(
                 time.sleep(_TIMEOUT_BACKOFF[min(backoff_idx, len(_TIMEOUT_BACKOFF) - 1)])
                 backoff_idx += 1
                 retries_left -= 1
+                # Refresh session ID on timeout to break sticky affinity on stalled node
+                active_session_id = new_session_id()
+                headers["x-litellm-session-id"] = active_session_id
+                payload["session_id"] = active_session_id
+                payload["metadata"]["session_id"] = active_session_id
                 continue
             raise LLMError(f"LLM request failed after {config.LLM_RETRY} retries; last error: {last_err}") from exc
         except requests.ConnectionError as exc:
@@ -183,6 +175,11 @@ def _chat_locked(
                 time.sleep(_RETRY_BACKOFF[min(backoff_idx, len(_RETRY_BACKOFF) - 1)])
                 backoff_idx += 1
                 retries_left -= 1
+                # Refresh session ID on connection drop to allow failover
+                active_session_id = new_session_id()
+                headers["x-litellm-session-id"] = active_session_id
+                payload["session_id"] = active_session_id
+                payload["metadata"]["session_id"] = active_session_id
                 continue
             raise LLMError(f"LLM request failed after {config.LLM_RETRY} retries; last error: {last_err}") from exc
 
@@ -228,6 +225,11 @@ def _chat_locked(
                     time.sleep(_TIMEOUT_BACKOFF[min(backoff_idx, len(_TIMEOUT_BACKOFF) - 1)])
                     backoff_idx += 1
                     retries_left -= 1
+                    # Refresh session ID on mid-stream drop
+                    active_session_id = new_session_id()
+                    headers["x-litellm-session-id"] = active_session_id
+                    payload["session_id"] = active_session_id
+                    payload["metadata"]["session_id"] = active_session_id
                     continue
                 raise LLMError(f"LLM stream failed after {config.LLM_RETRY} retries; last error: {last_err}") from exc
             finally:
