@@ -57,6 +57,8 @@
 | [PROMPTS.md](PROMPTS.md) | 模板设计说明：20 个模板的结构、硬约束、连锁影响、调优经验 | 开发接手者 |
 | [TESTING.md](TESTING.md) | 测试情况：全部验证结果、12 个闭环修复、性能统计 | 开发接手者 |
 | [ENVIRONMENT.md](ENVIRONMENT.md) | 环境档案：硬件清单、AI 服务端点、spark/PRO6000 实测特性、故障模式目录 | **开发接手者必读** |
+| [HARDWARE_API_GUIDE.md](HARDWARE_API_GUIDE.md) | **算力与 API 接口指南**：双 Spark 独立会话租赁、PRO 6000 ComfyUI REST 调用与可直接复用 Python 示例 | **开发者必读** |
+| [BENCHMARK_OPT_FULL13.md](BENCHMARK_OPT_FULL13.md) | **基准测试报告**：方案 B 480P 全链路从头重新生成实测耗时与提速统计 | 所有人 |
 | [COORDINATION.md](COORDINATION.md) | 协作规则：资源纪律、异常流程、环境约定 | **所有人必读** |
 | [USER_MANUAL.md](USER_MANUAL.md) | 用户手册：快速开始、CLI/GUI 用法、产物位置、故障排查 | 使用者 |
 | [QUALITY_GUIDE.md](QUALITY_GUIDE.md) | 质量评估：校验分数体系、已知偏移模式、审查要点、needs_review 处置 | 使用者 |

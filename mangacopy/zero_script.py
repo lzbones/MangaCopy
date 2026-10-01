@@ -655,17 +655,69 @@ def _l3_repair(data, key, panel):
     if not isinstance(content, str) or not content.strip():
         return None, ""
 
+    # 1. Normalize markdown headers (e.g. ### 出场人物 or # 出场人物 -> ## 出场人物)
     for hd in _L3_HEADERS:
         plain = hd.lstrip("#").strip()
         pattern = re.compile(rf"^#+\s*{re.escape(plain)}", re.MULTILINE)
         content = pattern.sub(hd, content)
 
+    # 2. Extract sections by existing headers
+    positions = []
     for hd in _L3_HEADERS:
-        if hd not in content:
-            content = content.strip() + f"\n\n{hd}\n（无）"
+        idx = content.find(hd)
+        if idx >= 0:
+            positions.append((idx, hd))
+    positions.sort()
 
-    fixed = dict(data, content=content)
-    return fixed, f"{key} L3 headers normalized"
+    sections = {}
+    for i, (idx, hd) in enumerate(positions):
+        start = idx + len(hd)
+        end = positions[i + 1][0] if i + 1 < len(positions) else len(content)
+        sections[hd] = content[start:end].strip()
+
+    # If first header was missing, check if there's raw content before first found header
+    if positions and positions[0][0] > 0:
+        prefix = content[:positions[0][0]].strip()
+        if prefix and "## 分镜编号与位置" not in sections:
+            sections["## 分镜编号与位置"] = prefix
+
+    # 3. Reconstruct strictly in _L3_HEADERS order
+    new_parts = []
+    for hd in _L3_HEADERS:
+        text = sections.get(hd, "").strip()
+        if not text:
+            if hd == "## 分镜编号与位置":
+                no = panel.get("no", 0)
+                sh = panel.get("shape", "")
+                text = f"- 分镜 key：{key}\n- 形状：{sh}\n- 序号：第 {no} 镜"
+            elif hd == "## 出场人物":
+                names = [c.get("name", "") for c in (panel.get("detail") or {}).get("characters", [])]
+                text = "、".join(names) if names else "（无具体出场人物）"
+            elif hd == "## 动作与姿态":
+                text = (panel.get("detail") or {}).get("action", "") or "分镜动作推进"
+            elif hd == "## 空间关系与构图":
+                text = (panel.get("detail") or {}).get("setting", "") or "全景对峙与空间动势"
+            elif hd == "## 镜头角度":
+                text = (panel.get("detail") or {}).get("camera", "") or "平视中景"
+            elif hd == "## 背景环境":
+                text = (panel.get("detail") or {}).get("setting", "") or "背景动态速度线与环境渲染"
+            elif hd == "## 对白原文":
+                dl = (panel.get("detail") or {}).get("dialogue", [])
+                text = "；".join(f"{d.get('speaker','')}: {d.get('text','')}" for d in dl) if dl else "（无）"
+            elif hd == "## 拟声词":
+                on = (panel.get("detail") or {}).get("onomatopoeia", [])
+                text = "、".join(on) if on else "（无）"
+            elif hd == "## 氛围与情绪":
+                text = "紧张激烈，黑白热血漫画质感"
+            elif hd == "## 备注":
+                text = "（无）"
+            else:
+                text = "（无）"
+        new_parts.append(f"{hd}\n{text}")
+
+    reconstructed = "\n\n".join(new_parts)
+    fixed = dict(data, content=reconstructed)
+    return fixed, f"{key} L3 headers strictly ordered and normalized"
 
 
 # ---- issues (checker output) -------------------------------------------------
