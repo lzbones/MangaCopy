@@ -1,7 +1,7 @@
 # MangaCopy 程序架构
 
 > 版本：1.0（2026-09-28）
-> 关联文档：[方案设计](03_DESIGN_PLAN.md) · [用户手册](08_USER_MANUAL.md)
+> 关联文档：[方案设计](../02_specification/02_02_DESIGN_PLAN.md) · [用户手册](../04_workflow/04_02_USER_MANUAL.md)
 
 ## 1. 三层架构总览
 

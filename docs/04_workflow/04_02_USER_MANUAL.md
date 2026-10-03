@@ -1,7 +1,7 @@
 # MangaCopy 用户手册
 
 > 版本：1.0（2026-09-28）
-> 关联文档：[环境档案](05_ENVIRONMENT.md) · [程序架构](04_ARCHITECTURE.md) · [需求](02_REQUIREMENTS.md)
+> 关联文档：[环境档案](../03_architecture/03_02_ENVIRONMENT.md) · [程序架构](../03_architecture/03_01_ARCHITECTURE.md) · [需求](../02_specification/02_01_REQUIREMENTS.md)
 
 ## 1. 快速开始
 

@@ -55,9 +55,11 @@
 测试执行脚本：tests/run_branch_a.py（分支 A 全闭环自动化执行器）
               tests/run_rerun_b.py（方案 B 全链路调度器）
 核心代码：mangacopy/（15 个模块 + 20 个 Prompt 模板）
-核心文档：docs/
-  ├── 11_BENCHMARK_OPT_FULL13.md       # 方案 B 完整实测耗时与性能基准报告
-  ├── 12_BENCHMARK_TIMING_FULL13.md    # 基准方案性能参考记录
-  ├── 15_CHANGELOG.md                  # 详细架构与代码变更日志（更新至 2026-10-01）
-  └── 13_STATUS.md                     # 本状态文件
+核心文档：Docs/
+  ├── 05_validation/
+  │   ├── 05_02_BENCHMARK_OPT_FULL13.md    # 方案 B 完整实测耗时与性能基准报告
+  │   └── 05_03_BENCHMARK_TIMING_FULL13.md # 基准方案性能参考记录
+  └── 06_lifecycle/
+      ├── 06_01_STATUS.md                  # 本状态文件
+      └── 06_03_CHANGELOG.md               # 详细架构与代码变更日志（更新至 2026-10-01）
 ```

@@ -8,41 +8,41 @@
 ## 一、系统认知与文档依赖拓扑
 
 ```
-                       ┌──────────────────────┐
-                       │  02_REQUIREMENTS.md  │  需求（为什么做）
-                       └──────────┬───────────┘
-                                  │ 决策推导
-                                  ▼
-                       ┌──────────────────────┐
-         ┌─────────────│  03_DESIGN_PLAN.md   │  方案（怎么做）
-         │             └──────────┬───────────┘
-         │ 决策落地为                │ 实现与部署
-         ▼                        ▼
-┌──────────────────────┐       ┌──────────────────────┐
-│    07_PROMPTS.md     │       │  04_ARCHITECTURE.md  │  架构（代码怎么组织）
-│  模板体系（核心大脑）  │◄──────┤                      │
-└──────────┬───────────┘  调度  └──────────┬───────────┘
-           │                               │ 运行与验证
-           ▼                               ▼
-┌──────────────────────┐       ┌──────────────────────┐
-│  09_QUALITY_GUIDE.md │       │    10_TESTING.md     │  测试（做得如何）
-│  （视觉与质量评估）   │       └──────────┬───────────┘
-└──────────────────────┘                  │ 部署于
-                                          ▼
-                               ┌──────────────────────┐
-                               │  05_ENVIRONMENT.md   │  环境（跑在什么上面）
-                               │  06_HARDWARE_API.md  │  接口（异构算力怎么调）
-                               └──────────────────────┘
+                           ┌────────────────────────────────────────┐
+                           │ 02_specification/02_01_REQUIREMENTS.md │  需求（为什么做）
+                           └───────────────────┬────────────────────┘
+                                               │ 决策推导
+                                               ▼
+                           ┌────────────────────────────────────────┐
+             ┌─────────────│  02_specification/02_02_DESIGN_PLAN.md │  方案（怎么做）
+             │             └───────────────────┬────────────────────┘
+             │ 决策落地为                             │ 实现与部署
+             ▼                                     ▼
+┌──────────────────────────────┐       ┌────────────────────────────────────────┐
+│  04_workflow/04_01_PROMPTS   │       │ 03_architecture/03_01_ARCHITECTURE.md  │  架构（代码怎么组织）
+│     模板体系（核心大脑）       │◄──────┤                                        │
+└──────────────┬───────────────┘  调度 └───────────────────┬────────────────────┘
+               │                                           │ 运行与验证
+               ▼                                           ▼
+┌──────────────────────────────┐       ┌────────────────────────────────────────┐
+│ 04_workflow/04_03_QUALITY    │       │  05_validation/05_01_TESTING.md        │  测试（做得如何）
+│      （视觉与质量评估）       │       └───────────────────┬────────────────────┘
+└──────────────────────────────┘                           │ 部署于
+                                                           ▼
+                                       ┌────────────────────────────────────────┐
+                                       │ 03_architecture/03_02_ENVIRONMENT.md   │  环境（跑在什么上面）
+                                       │ 03_architecture/03_03_HARDWARE_API.md  │  接口（异构算力怎么调）
+                                       └────────────────────────────────────────┘
 
-贯穿项目生命周期：
-  01_COORDINATION.md（人机协作规则）────────── 任何角色必读
-  08_USER_MANUAL.md（用户操作手册）──────────── 使用者核心入口
-  11_BENCHMARK_OPT_FULL13.md（实测基准报告）─── 性能评估详述
-  12_BENCHMARK_TIMING_FULL13.md（基准对照）──── 历史数据参考
-  13_STATUS.md（项目当前进展快照）──────────── 阶段交付总览
-  14_ROADMAP.md（后续演进路线规划）─────────── 演进储备方案
-  15_CHANGELOG.md（版本演进日志）───────────── 全量变更历史（无 git，唯一记录）
-  16_DESIGN_NOTES.md（历史设计琐记备查）────── 原始细节归档
+贯穿项目全生命周期：
+  01_governance/01_01_COORDINATION.md（人机协作纪律）──────── 任何角色必读
+  04_workflow/04_02_USER_MANUAL.md（用户操作手册）─────────── 使用者核心入口
+  05_validation/05_02_BENCHMARK_OPT_FULL13.md（实测基准）──── 方案 B 提速 52.4% 详述
+  05_validation/05_03_BENCHMARK_TIMING_FULL13.md（基准对照）─ 历史数据参考
+  06_lifecycle/06_01_STATUS.md（项目当前进展快照）─────────── 阶段交付总览
+  06_lifecycle/06_02_ROADMAP.md（后续演进路线规划）────────── 演进储备方案
+  06_lifecycle/06_03_CHANGELOG.md（版本演进日志）──────────── 全量变更历史（无 git，唯一记录）
+  06_lifecycle/06_04_DESIGN_NOTES.md（历史设计琐记备查）───── 原始细节归档
 ```
 
 ---
@@ -51,46 +51,50 @@
 
 | 读者角色 | 推荐阅读路线 | 核心目标 |
 | :--- | :--- | :--- |
-| **系统使用者**（执行复刻流水线） | `01_COORDINATION` → `08_USER_MANUAL` → `09_QUALITY_GUIDE` | 明确协作纪律 $\rightarrow$ 掌握 CLI/GUI 启动 $\rightarrow$ 掌握质检与审查处置 |
-| **开发接手者**（代码维护与二次开发） | `01_COORDINATION` → `05_ENVIRONMENT` → `06_HARDWARE_API_GUIDE` → `04_ARCHITECTURE` → `03_DESIGN_PLAN` → `07_PROMPTS` → `10_TESTING` → `15_CHANGELOG` | 懂规矩 $\rightarrow$ 懂算力与接口 $\rightarrow$ 懂系统架构 $\rightarrow$ 懂核心方案 $\rightarrow$ 懂提示词 $\rightarrow$ 懂测试验证 $\rightarrow$ 懂演进历史 |
-| **决策与评审者**（快速把控项目全貌） | `02_REQUIREMENTS` → `03_DESIGN_PLAN` → `13_STATUS` → `11_BENCHMARK_OPT_FULL13` → `14_ROADMAP` | 5 分钟知晓业务目标 $\rightarrow$ 架构选型 $\rightarrow$ 交付成果 $\rightarrow$ 性能实测 $\rightarrow$ 后续规划 |
+| **系统使用者**（执行复刻流水线） | [01_01_COORDINATION](01_governance/01_01_COORDINATION.md) → [04_02_USER_MANUAL](04_workflow/04_02_USER_MANUAL.md) → [04_03_QUALITY_GUIDE](04_workflow/04_03_QUALITY_GUIDE.md) | 明确协作纪律 $\rightarrow$ 掌握 CLI/GUI 启动 $\rightarrow$ 掌握质检与审查处置 |
+| **开发接手者**（代码维护与二次开发） | [01_01_COORDINATION](01_governance/01_01_COORDINATION.md) → [03_02_ENVIRONMENT](03_architecture/03_02_ENVIRONMENT.md) → [03_03_HARDWARE_API](03_architecture/03_03_HARDWARE_API_GUIDE.md) → [03_01_ARCHITECTURE](03_architecture/03_01_ARCHITECTURE.md) → [02_02_DESIGN_PLAN](02_specification/02_02_DESIGN_PLAN.md) → [04_01_PROMPTS](04_workflow/04_01_PROMPTS.md) → [05_01_TESTING](05_validation/05_01_TESTING.md) → [06_03_CHANGELOG](06_lifecycle/06_03_CHANGELOG.md) | 懂规矩 $\rightarrow$ 懂算力与接口 $\rightarrow$ 懂系统架构 $\rightarrow$ 懂核心方案 $\rightarrow$ 懂提示词 $\rightarrow$ 懂测试验证 $\rightarrow$ 懂演进历史 |
+| **决策与评审者**（快速把控项目全貌） | [02_01_REQUIREMENTS](02_specification/02_01_REQUIREMENTS.md) → [02_02_DESIGN_PLAN](02_specification/02_02_DESIGN_PLAN.md) → [06_01_STATUS](06_lifecycle/06_01_STATUS.md) → [05_02_BENCHMARK](05_validation/05_02_BENCHMARK_OPT_FULL13.md) → [06_02_ROADMAP](06_lifecycle/06_02_ROADMAP.md) | 5 分钟知晓业务目标 $\rightarrow$ 架构选型 $\rightarrow$ 交付成果 $\rightarrow$ 性能实测 $\rightarrow$ 后续规划 |
 
 ---
 
-## 三、文档全集清单（按自然阅读次序索引）
+## 三、目录模块化分类全集清单
 
-### 1. 规约与需求层（准入必读）
+### 1. `01_governance/` 协作与工作纪律
 | 序号与文档 | 核心内容概述 | 建议读者 |
 | :--- | :--- | :--- |
-| [01_COORDINATION.md](01_COORDINATION.md) | **人机协作纪律**：双 Spark / PRO 6000 独占互斥纪律、异常处置与人机通信规范 | **所有人必读** |
-| [02_REQUIREMENTS.md](02_REQUIREMENTS.md) | **任务需求全集**：S0~S8 全流程 7 步原始需求、追加修订指标与质量红线 | 所有人 |
+| [01_01_COORDINATION.md](01_governance/01_01_COORDINATION.md) | **人机协作纪律**：双 Spark / PRO 6000 独占互斥纪律、异常处置与通信规范 | **所有人必读** |
 
-### 2. 方案、架构与算力支撑层（设计基础）
+### 2. `02_specification/` 需求与顶层设计
 | 序号与文档 | 核心内容概述 | 建议读者 |
 | :--- | :--- | :--- |
-| [03_DESIGN_PLAN.md](03_DESIGN_PLAN.md) | **方案设计说明**：技术选型决策、各阶段算法机制、异常容错与降级策略 | 核心开发 / 架构师 |
-| [04_ARCHITECTURE.md](04_ARCHITECTURE.md) | **程序软件架构**：三层架构设计、DAG 调度机理、并发池模型与模块约定 | 核心开发 |
-| [05_ENVIRONMENT.md](05_ENVIRONMENT.md) | **计算环境档案**：硬件拓扑、双 Spark / PRO 6000 端点端口与实测故障模式目录 | 开发者必读 |
-| [06_HARDWARE_API_GUIDE.md](06_HARDWARE_API_GUIDE.md) | **异构算力 API 指南**：双 Spark 会话池租赁、ComfyUI REST 接口与实战 Python 示例 | 开发者必读 |
+| [02_01_REQUIREMENTS.md](02_specification/02_01_REQUIREMENTS.md) | **任务需求全集**：S0~S8 全流程 7 步原始需求、追加修订指标与质量红线 | 所有人 |
+| [02_02_DESIGN_PLAN.md](02_specification/02_02_DESIGN_PLAN.md) | **方案设计说明**：技术选型决策、各阶段算法机制、异常容错与降级策略 | 核心开发 / 架构师 |
 
-### 3. 开发实现、运行与质检层（工程实操）
+### 3. `03_architecture/` 系统架构与算力集群
 | 序号与文档 | 核心内容概述 | 建议读者 |
 | :--- | :--- | :--- |
-| [07_PROMPTS.md](07_PROMPTS.md) | **提示词工程体系**：20 个阶段 Prompt 结构设计、硬约束条件与调优收敛经验 | 算法 / 核心开发 |
-| [08_USER_MANUAL.md](08_USER_MANUAL.md) | **用户操作手册**：CLI/GUI 快速启动、断点续跑、产物导出位置与故障排查 | 使用者 |
-| [09_QUALITY_GUIDE.md](09_QUALITY_GUIDE.md) | **视觉质量评估**：校验分数体系、已知视觉偏移特征、人工审查与 needs_review 处置 | 使用者 / 质检员 |
+| [03_01_ARCHITECTURE.md](03_architecture/03_01_ARCHITECTURE.md) | **程序软件架构**：三层架构设计、DAG 调度机理、并发池模型与模块约定 | 核心开发 |
+| [03_02_ENVIRONMENT.md](03_architecture/03_02_ENVIRONMENT.md) | **计算环境档案**：硬件拓扑、双 Spark / PRO 6000 端点端口与实测故障模式目录 | 开发者必读 |
+| [03_03_HARDWARE_API_GUIDE.md](03_architecture/03_03_HARDWARE_API_GUIDE.md) | **异构算力 API 指南**：双 Spark 会话池租赁、ComfyUI REST 接口与实操 Python 示例 | 开发者必读 |
 
-### 4. 验证测试与基准评测层（质量评估）
+### 4. `04_workflow/` 核心流程、操作与质检
 | 序号与文档 | 核心内容概述 | 建议读者 |
 | :--- | :--- | :--- |
-| [10_TESTING.md](10_TESTING.md) | **系统测试报告**：阶段验证结果、12 个核心闭环修复复盘与性能指标 | 测试 / 核心开发 |
-| [11_BENCHMARK_OPT_FULL13.md](11_BENCHMARK_OPT_FULL13.md) | **方案 B 全量基准报告**：第 187 话 480P 从头生成分项实测耗时与 52.4% 提速详述 | 所有人 |
-| [12_BENCHMARK_TIMING_FULL13.md](12_BENCHMARK_TIMING_FULL13.md) | **基准性能对照记录**：原始基准方案分阶段耗时对照数据 | 性能评估 |
+| [04_01_PROMPTS.md](04_workflow/04_01_PROMPTS.md) | **提示词工程体系**：20 个阶段 Prompt 结构设计、硬约束条件与调优收敛经验 | 算法 / 核心开发 |
+| [04_02_USER_MANUAL.md](04_workflow/04_02_USER_MANUAL.md) | **用户操作手册**：CLI/GUI 快速启动、断点续跑、产物导出位置与故障排查 | 使用者 |
+| [04_03_QUALITY_GUIDE.md](04_workflow/04_03_QUALITY_GUIDE.md) | **视觉质量评估**：校验分数体系、已知视觉偏移特征、人工审查与 needs_review 处置 | 使用者 / 质检员 |
 
-### 5. 项目状态与演进归档层（生命周期）
+### 5. `05_validation/` 测试、验证与基准评测
 | 序号与文档 | 核心内容概述 | 建议读者 |
 | :--- | :--- | :--- |
-| [13_STATUS.md](13_STATUS.md) | **项目状态总览**：方案 B 100% 闭环交付状态、核心里程碑与物料清单快照 | 所有人 |
-| [14_ROADMAP.md](14_ROADMAP.md) | **后续演进路线**：进行中任务、收官验证、短期优化与中长期规划 | 所有人 |
-| [15_CHANGELOG.md](15_CHANGELOG.md) | **系统演进日志**：各阶段代码变更、修复记录流水（无 Git，唯一历史追溯） | 核心开发 |
-| [16_DESIGN_NOTES.md](16_DESIGN_NOTES.md) | **工程设计备忘**：早期开发阶段积累的技术细节与约束杂记（原 DESIGN.md） | 备查 |
+| [05_01_TESTING.md](05_validation/05_01_TESTING.md) | **系统测试报告**：阶段验证结果、12 个核心闭环修复复盘与性能指标 | 测试 / 核心开发 |
+| [05_02_BENCHMARK_OPT_FULL13.md](05_validation/05_02_BENCHMARK_OPT_FULL13.md) | **方案 B 全量基准报告**：第 187 话 480P 从头生成分项实测耗时与 52.4% 提速详述 | 所有人 |
+| [05_03_BENCHMARK_TIMING_FULL13.md](05_validation/05_03_BENCHMARK_TIMING_FULL13.md) | **基准性能对照记录**：原始基准方案分阶段耗时对照数据 | 性能评估 |
+
+### 6. `06_lifecycle/` 状态跟踪与演进归档
+| 序号与文档 | 核心内容概述 | 建议读者 |
+| :--- | :--- | :--- |
+| [06_01_STATUS.md](06_lifecycle/06_01_STATUS.md) | **项目状态总览**：方案 B 100% 闭环交付状态、核心里程碑与物料清单快照 | 所有人 |
+| [06_02_ROADMAP.md](06_lifecycle/06_02_ROADMAP.md) | **后续演进路线**：进行中任务、收官验证、短期优化与中长期规划 | 所有人 |
+| [06_03_CHANGELOG.md](06_lifecycle/06_03_CHANGELOG.md) | **系统演进日志**：各阶段代码变更、修复记录流水（无 Git，唯一历史追溯） | 核心开发 |
+| [06_04_DESIGN_NOTES.md](06_lifecycle/06_04_DESIGN_NOTES.md) | **工程设计备忘**：早期开发阶段积累的技术细节与约束杂记（原 DESIGN.md） | 备查 |

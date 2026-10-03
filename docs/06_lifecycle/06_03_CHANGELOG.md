@@ -127,7 +127,7 @@
 
 - 基础层（config/llm/comfy/project/stages/templates/ingest）
 - S1-S8 全部业务模块 + 20 个 prompt 模板
-- CLI + Gradio GUI + 16_DESIGN_NOTES.md
+- CLI + Gradio GUI + 06_04_DESIGN_NOTES.md
 - llm.py json_object 回退（4xx 拒绝参数时去参重试）
 - S4b 文字排印（新增阶段）：PIL 排印，无字/有字双版本
 - 生图双档：standard（NoUpScaling ~5s/张，默认）/ hd（~15s/张）
