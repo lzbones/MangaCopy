@@ -1,7 +1,7 @@
 # MangaCopy 需求文档
 
 > 版本：1.0（2026-09-28）
-> 关联文档：[方案设计](DESIGN_PLAN.md) · [程序架构](ARCHITECTURE.md) · [测试报告](TESTING.md) · [下一步计划](ROADMAP.md) · [用户手册](USER_MANUAL.md)
+> 关联文档：[方案设计](03_DESIGN_PLAN.md) · [程序架构](04_ARCHITECTURE.md) · [测试报告](10_TESTING.md) · [下一步计划](14_ROADMAP.md) · [用户手册](08_USER_MANUAL.md)
 
 ## 1. 项目定位
 

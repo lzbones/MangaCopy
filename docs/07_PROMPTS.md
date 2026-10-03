@@ -2,7 +2,7 @@
 
 > 版本：1.0（2026-09-28）
 > 模板位置：`mangacopy/prompts/`（20 个 .md 文件）
-> 关联文档：[方案设计](DESIGN_PLAN.md) · [程序架构](ARCHITECTURE.md)
+> 关联文档：[方案设计](03_DESIGN_PLAN.md) · [程序架构](04_ARCHITECTURE.md)
 
 ## 1. 模板机制
 

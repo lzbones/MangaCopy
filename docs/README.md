@@ -1,68 +1,96 @@
 # MangaCopy 文档索引
 
-> 更新：2026-10-01
+> 更新：2026-10-04
 > 项目：漫画 → 零号脚本 → 复刻图（无字/有字）→ 复刻视频 全自动流水线
 
-## 文档关系图
+---
+
+## 一、系统认知与文档依赖拓扑
 
 ```
-                      ┌─────────────────┐
-                      │ REQUIREMENTS.md │  需求（为什么做）
-                      └────────┬────────┘
-                               │ 回答
-                               ▼
-                      ┌─────────────────┐
-        ┌─────────────│  DESIGN_PLAN.md  │  方案（怎么做）
-        │             └────────┬────────┘
-        │ 决策落地为               │ 实现为
-        ▼                        ▼
-┌───────────────┐       ┌─────────────────┐
-│   PROMPTS.md  │       │ ARCHITECTURE.md  │  架构（代码怎么组织）
-│ 模板（大脑）    │◄──────┤                 │
-└───────┬───────┘  调用  └────────┬────────┘
-        │                     验证于
-        ▼                        ▼
-┌───────────────┐       ┌─────────────────┐
-│QUALITY_GUIDE  │       │   TESTING.md     │  测试（做得如何）
-│（质量怎么看）   │       └────────┬────────┘
-└───────────────┘                │ 运行于
-                                 ▼
-                      ┌─────────────────┐
-                      │ ENVIRONMENT.md   │  环境（跑在什么上面）
-                      └─────────────────┘
+                       ┌──────────────────────┐
+                       │  02_REQUIREMENTS.md  │  需求（为什么做）
+                       └──────────┬───────────┘
+                                  │ 决策推导
+                                  ▼
+                       ┌──────────────────────┐
+         ┌─────────────│  03_DESIGN_PLAN.md   │  方案（怎么做）
+         │             └──────────┬───────────┘
+         │ 决策落地为                │ 实现与部署
+         ▼                        ▼
+┌──────────────────────┐       ┌──────────────────────┐
+│    07_PROMPTS.md     │       │  04_ARCHITECTURE.md  │  架构（代码怎么组织）
+│  模板体系（核心大脑）  │◄──────┤                      │
+└──────────┬───────────┘  调度  └──────────┬───────────┘
+           │                               │ 运行与验证
+           ▼                               ▼
+┌──────────────────────┐       ┌──────────────────────┐
+│  09_QUALITY_GUIDE.md │       │    10_TESTING.md     │  测试（做得如何）
+│  （视觉与质量评估）   │       └──────────┬───────────┘
+└──────────────────────┘                  │ 部署于
+                                          ▼
+                               ┌──────────────────────┐
+                               │  05_ENVIRONMENT.md   │  环境（跑在什么上面）
+                               │  06_HARDWARE_API.md  │  接口（异构算力怎么调）
+                               └──────────────────────┘
 
-贯穿全局：
-  COORDINATION.md（人机协作规则）── 任何角色必读
-  USER_MANUAL.md（怎么用）────────── 使用者入口
-  CHANGELOG.md（怎么演变的）──────── 无 git，唯一历史
-  ROADMAP.md（接下来做什么）
-  DESIGN.md / STATUS.md（历史积累 / 状态快照）
+贯穿项目生命周期：
+  01_COORDINATION.md（人机协作规则）────────── 任何角色必读
+  08_USER_MANUAL.md（用户操作手册）──────────── 使用者核心入口
+  11_BENCHMARK_OPT_FULL13.md（实测基准报告）─── 性能评估详述
+  12_BENCHMARK_TIMING_FULL13.md（基准对照）──── 历史数据参考
+  13_STATUS.md（项目当前进展快照）──────────── 阶段交付总览
+  14_ROADMAP.md（后续演进路线规划）─────────── 演进储备方案
+  15_CHANGELOG.md（版本演进日志）───────────── 全量变更历史（无 git，唯一记录）
+  16_DESIGN_NOTES.md（历史设计琐记备查）────── 原始细节归档
 ```
 
-## 阅读路线（按角色）
+---
 
-| 你是 | 推荐顺序 | 目的 |
-|---|---|---|
-| **使用者**（跑复刻） | COORDINATION → USER_MANUAL → QUALITY_GUIDE | 会用 + 会看质量 + 懂规矩 |
-| **开发接手者** | COORDINATION → ENVIRONMENT → ARCHITECTURE → DESIGN_PLAN → PROMPTS → TESTING → CHANGELOG | 懂规矩 → 懂硬件 → 懂代码 → 懂设计 → 懂模板 → 懂测试 → 懂历史 |
-| **快速了解项目** | REQUIREMENTS → DESIGN_PLAN → STATUS → ROADMAP | 5 分钟知道这是什么、做到哪了 |
+## 二、角色化推荐阅读路线
 
-## 文档清单
+| 读者角色 | 推荐阅读路线 | 核心目标 |
+| :--- | :--- | :--- |
+| **系统使用者**（执行复刻流水线） | `01_COORDINATION` → `08_USER_MANUAL` → `09_QUALITY_GUIDE` | 明确协作纪律 $\rightarrow$ 掌握 CLI/GUI 启动 $\rightarrow$ 掌握质检与审查处置 |
+| **开发接手者**（代码维护与二次开发） | `01_COORDINATION` → `05_ENVIRONMENT` → `06_HARDWARE_API_GUIDE` → `04_ARCHITECTURE` → `03_DESIGN_PLAN` → `07_PROMPTS` → `10_TESTING` → `15_CHANGELOG` | 懂规矩 $\rightarrow$ 懂算力与接口 $\rightarrow$ 懂系统架构 $\rightarrow$ 懂核心方案 $\rightarrow$ 懂提示词 $\rightarrow$ 懂测试验证 $\rightarrow$ 懂演进历史 |
+| **决策与评审者**（快速把控项目全貌） | `02_REQUIREMENTS` → `03_DESIGN_PLAN` → `13_STATUS` → `11_BENCHMARK_OPT_FULL13` → `14_ROADMAP` | 5 分钟知晓业务目标 $\rightarrow$ 架构选型 $\rightarrow$ 交付成果 $\rightarrow$ 性能实测 $\rightarrow$ 后续规划 |
 
-| 文档 | 内容 | 读者 |
-|---|---|---|
-| [REQUIREMENTS.md](REQUIREMENTS.md) | 任务需求全集：原始 7 步 + 全部追加修订 + 质量红线 | 所有人 |
-| [DESIGN_PLAN.md](DESIGN_PLAN.md) | 方案设计：核心决策、各阶段算法、容错体系、性能要点 | 开发接手者 |
-| [ARCHITECTURE.md](ARCHITECTURE.md) | 程序架构：三层结构、DAG、并发模型、模块清单、目录约定 | 开发接手者 |
-| [PROMPTS.md](PROMPTS.md) | 模板设计说明：20 个模板的结构、硬约束、连锁影响、调优经验 | 开发接手者 |
-| [TESTING.md](TESTING.md) | 测试情况：全部验证结果、12 个闭环修复、性能统计 | 开发接手者 |
-| [ENVIRONMENT.md](ENVIRONMENT.md) | 环境档案：硬件清单、AI 服务端点、spark/PRO6000 实测特性、故障模式目录 | **开发接手者必读** |
-| [HARDWARE_API_GUIDE.md](HARDWARE_API_GUIDE.md) | **算力与 API 接口指南**：双 Spark 独立会话租赁、PRO 6000 ComfyUI REST 调用与可直接复用 Python 示例 | **开发者必读** |
-| [BENCHMARK_OPT_FULL13.md](BENCHMARK_OPT_FULL13.md) | **基准测试报告**：方案 B 480P 全链路从头重新生成实测耗时与提速统计 | 所有人 |
-| [COORDINATION.md](COORDINATION.md) | 协作规则：资源纪律、异常流程、环境约定 | **所有人必读** |
-| [USER_MANUAL.md](USER_MANUAL.md) | 用户手册：快速开始、CLI/GUI 用法、产物位置、故障排查 | 使用者 |
-| [QUALITY_GUIDE.md](QUALITY_GUIDE.md) | 质量评估：校验分数体系、已知偏移模式、审查要点、needs_review 处置 | 使用者 |
-| [CHANGELOG.md](CHANGELOG.md) | 变更日志：全部演进记录（无 git，唯一历史） | 开发接手者 |
-| [ROADMAP.md](ROADMAP.md) | 下一步计划：进行中、收官验证、短期优化、中长期规划 | 所有人 |
-| [DESIGN.md](DESIGN.md) | 工程约束与技术细节（历史积累，随开发过程更新） | 开发接手者 |
-| [STATUS.md](STATUS.md) | 项目状态总览（阶段性快照） | 所有人 |
+---
+
+## 三、文档全集清单（按自然阅读次序索引）
+
+### 1. 规约与需求层（准入必读）
+| 序号与文档 | 核心内容概述 | 建议读者 |
+| :--- | :--- | :--- |
+| [01_COORDINATION.md](01_COORDINATION.md) | **人机协作纪律**：双 Spark / PRO 6000 独占互斥纪律、异常处置与人机通信规范 | **所有人必读** |
+| [02_REQUIREMENTS.md](02_REQUIREMENTS.md) | **任务需求全集**：S0~S8 全流程 7 步原始需求、追加修订指标与质量红线 | 所有人 |
+
+### 2. 方案、架构与算力支撑层（设计基础）
+| 序号与文档 | 核心内容概述 | 建议读者 |
+| :--- | :--- | :--- |
+| [03_DESIGN_PLAN.md](03_DESIGN_PLAN.md) | **方案设计说明**：技术选型决策、各阶段算法机制、异常容错与降级策略 | 核心开发 / 架构师 |
+| [04_ARCHITECTURE.md](04_ARCHITECTURE.md) | **程序软件架构**：三层架构设计、DAG 调度机理、并发池模型与模块约定 | 核心开发 |
+| [05_ENVIRONMENT.md](05_ENVIRONMENT.md) | **计算环境档案**：硬件拓扑、双 Spark / PRO 6000 端点端口与实测故障模式目录 | 开发者必读 |
+| [06_HARDWARE_API_GUIDE.md](06_HARDWARE_API_GUIDE.md) | **异构算力 API 指南**：双 Spark 会话池租赁、ComfyUI REST 接口与实战 Python 示例 | 开发者必读 |
+
+### 3. 开发实现、运行与质检层（工程实操）
+| 序号与文档 | 核心内容概述 | 建议读者 |
+| :--- | :--- | :--- |
+| [07_PROMPTS.md](07_PROMPTS.md) | **提示词工程体系**：20 个阶段 Prompt 结构设计、硬约束条件与调优收敛经验 | 算法 / 核心开发 |
+| [08_USER_MANUAL.md](08_USER_MANUAL.md) | **用户操作手册**：CLI/GUI 快速启动、断点续跑、产物导出位置与故障排查 | 使用者 |
+| [09_QUALITY_GUIDE.md](09_QUALITY_GUIDE.md) | **视觉质量评估**：校验分数体系、已知视觉偏移特征、人工审查与 needs_review 处置 | 使用者 / 质检员 |
+
+### 4. 验证测试与基准评测层（质量评估）
+| 序号与文档 | 核心内容概述 | 建议读者 |
+| :--- | :--- | :--- |
+| [10_TESTING.md](10_TESTING.md) | **系统测试报告**：阶段验证结果、12 个核心闭环修复复盘与性能指标 | 测试 / 核心开发 |
+| [11_BENCHMARK_OPT_FULL13.md](11_BENCHMARK_OPT_FULL13.md) | **方案 B 全量基准报告**：第 187 话 480P 从头生成分项实测耗时与 52.4% 提速详述 | 所有人 |
+| [12_BENCHMARK_TIMING_FULL13.md](12_BENCHMARK_TIMING_FULL13.md) | **基准性能对照记录**：原始基准方案分阶段耗时对照数据 | 性能评估 |
+
+### 5. 项目状态与演进归档层（生命周期）
+| 序号与文档 | 核心内容概述 | 建议读者 |
+| :--- | :--- | :--- |
+| [13_STATUS.md](13_STATUS.md) | **项目状态总览**：方案 B 100% 闭环交付状态、核心里程碑与物料清单快照 | 所有人 |
+| [14_ROADMAP.md](14_ROADMAP.md) | **后续演进路线**：进行中任务、收官验证、短期优化与中长期规划 | 所有人 |
+| [15_CHANGELOG.md](15_CHANGELOG.md) | **系统演进日志**：各阶段代码变更、修复记录流水（无 Git，唯一历史追溯） | 核心开发 |
+| [16_DESIGN_NOTES.md](16_DESIGN_NOTES.md) | **工程设计备忘**：早期开发阶段积累的技术细节与约束杂记（原 DESIGN.md） | 备查 |

@@ -1,7 +1,7 @@
 # MangaCopy 方案设计
 
 > 版本：1.0（2026-09-28）
-> 关联文档：[需求](REQUIREMENTS.md) · [程序架构](ARCHITECTURE.md)
+> 关联文档：[需求](02_REQUIREMENTS.md) · [程序架构](04_ARCHITECTURE.md)
 
 ## 1. 核心设计决策
 

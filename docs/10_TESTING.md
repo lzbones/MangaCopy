@@ -1,7 +1,7 @@
 # MangaCopy 测试报告
 
 > 更新：2026-09-28 21:00
-> 关联文档：[需求](REQUIREMENTS.md) · [方案设计](DESIGN_PLAN.md)
+> 关联文档：[需求](02_REQUIREMENTS.md) · [方案设计](03_DESIGN_PLAN.md)
 
 ## 1. 测试总览
 

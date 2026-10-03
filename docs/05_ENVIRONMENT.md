@@ -2,7 +2,7 @@
 
 > 版本：1.0（2026-09-28）
 > 用途：供后续开发接手者全面了解本项目的硬件、服务、性能与运维约束。
-> 关联文档：[程序架构](ARCHITECTURE.md) · [开发调用实战指南](HARDWARE_API_GUIDE.md) · [测试报告](TESTING.md)
+> 关联文档：[程序架构](04_ARCHITECTURE.md) · [开发调用实战指南](06_HARDWARE_API_GUIDE.md) · [测试报告](10_TESTING.md)
 
 ## 1. 硬件清单
 

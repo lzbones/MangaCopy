@@ -1,9 +1,9 @@
 # MangaCopy: 智能网联多模态漫画全自动复刻与视听生成系统
 
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](https://www.python.org/)
-[![Hardware-DGX Spark](https://img.shields.io/badge/Hardware-DGX%20Spark%20(GB10)-green.svg)](docs/ENVIRONMENT.md)
-[![Hardware-RTX PRO 6000](https://img.shields.io/badge/Hardware-RTX%20PRO%206000%20(96GB)-purple.svg)](docs/ENVIRONMENT.md)
-[![Pipeline Status](https://img.shields.io/badge/Pipeline-100%25%20Closed--Loop-brightgreen.svg)](docs/STATUS.md)
+[![Hardware-DGX Spark](https://img.shields.io/badge/Hardware-DGX%20Spark%20(GB10)-green.svg)](05_ENVIRONMENT.md)
+[![Hardware-RTX PRO 6000](https://img.shields.io/badge/Hardware-RTX%20PRO%206000%20(96GB)-purple.svg)](05_ENVIRONMENT.md)
+[![Pipeline Status](https://img.shields.io/badge/Pipeline-100%25%20Closed--Loop-brightgreen.svg)](13_STATUS.md)
 
 ---
 
@@ -116,7 +116,7 @@
 | **四目录导出** | 112 画格 / 26 整页 | 1m 30s | **53s** | **提速 41.1%** |
 | **全链路总耗时** | **S0 至 S8 完整闭环** | **18h 36m 28s** | **8h 51m 32s** | **全链路提速 52.4%** |
 
-*详细逐段渲染数据与统计机理详见：[docs/BENCHMARK_OPT_FULL13.md](docs/BENCHMARK_OPT_FULL13.md)*。
+*详细逐段渲染数据与统计机理详见：[11_BENCHMARK_OPT_FULL13.md](Docs/11_BENCHMARK_OPT_FULL13.md)*。
 
 ---
 
@@ -148,13 +148,22 @@ python gui.py --port 7860
 
 ## 六、完整项目文档索引导航
 
-| 文档名称 | 内容描述 | 建议读者 |
+| 序号与文档名称 | 内容描述 | 建议读者 |
 | :--- | :--- | :--- |
-| **[docs/HARDWARE_API_GUIDE.md](docs/HARDWARE_API_GUIDE.md)** | **异构算力开发指南**：双 Spark 会话池、ComfyUI API 规范与可运行 Python 示例 | **开发者必读** |
-| **[docs/BENCHMARK_OPT_FULL13.md](docs/BENCHMARK_OPT_FULL13.md)** | **全量基准测试报告**：方案 B 480P 真实重跑分项耗时与吞吐详述 | 所有人 |
-| **[docs/STATUS.md](docs/STATUS.md)** | **项目状态总览**：当前全链路 100% 闭环状态与物料清单 | 所有人 |
-| **[docs/CHANGELOG.md](docs/CHANGELOG.md)** | **系统变更日志**：S2 确定性自愈、双池架构等全部演进记录 | 开发接手者 |
-| **[docs/ROADMAP.md](docs/ROADMAP.md)** | **演进路线规划**：ControlNet 姿态约束、情绪气泡等后续储备方案 | 所有人 |
-| **[docs/ENVIRONMENT.md](docs/ENVIRONMENT.md)** | **计算环境档案**：硬件特性、端点端口与实测故障模式目录 | 开发者必读 |
-| **[docs/USER_MANUAL.md](docs/USER_MANUAL.md)** | **用户使用手册**：快速上手、产物位置说明与排查手册 | 使用者 |
-| **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** | **程序架构说明**：DAG 调度、模块划分与数据结构约定 | 开发接手者 |
+| **[Docs/01_COORDINATION.md](Docs/01_COORDINATION.md)** | **人机协作规约**：双 Spark / PRO 6000 算力互斥纪律与异常流程 | **所有人必读** |
+| **[Docs/02_REQUIREMENTS.md](Docs/02_REQUIREMENTS.md)** | **任务需求全集**：S0~S8 全流程 7 步原始需求与质量红线 | 所有人 |
+| **[Docs/03_DESIGN_PLAN.md](Docs/03_DESIGN_PLAN.md)** | **方案设计说明**：核心决策、各阶段算法机理与容错体系 | 核心开发 |
+| **[Docs/04_ARCHITECTURE.md](Docs/04_ARCHITECTURE.md)** | **程序架构说明**：DAG 调度、模块划分与数据结构约定 | 开发接手者 |
+| **[Docs/05_ENVIRONMENT.md](Docs/05_ENVIRONMENT.md)** | **计算环境档案**：硬件特性、端点端口与实测故障模式目录 | 开发者必读 |
+| **[Docs/06_HARDWARE_API_GUIDE.md](Docs/06_HARDWARE_API_GUIDE.md)** | **异构算力开发指南**：双 Spark 会话池、ComfyUI API 规范与可运行 Python 示例 | **开发者必读** |
+| **[Docs/07_PROMPTS.md](Docs/07_PROMPTS.md)** | **提示词工程体系**：20 个阶段 Prompt 结构设计与调优经验 | 算法 / 核心开发 |
+| **[Docs/08_USER_MANUAL.md](Docs/08_USER_MANUAL.md)** | **用户使用手册**：快速上手、产物位置说明与排查手册 | 使用者 |
+| **[Docs/09_QUALITY_GUIDE.md](Docs/09_QUALITY_GUIDE.md)** | **视觉质量评估**：校验分数体系、已知偏移特征与审查要点 | 使用者 / 质检员 |
+| **[Docs/10_TESTING.md](Docs/10_TESTING.md)** | **系统测试报告**：阶段验证结果、12 个核心闭环修复复盘 | 测试 / 核心开发 |
+| **[Docs/11_BENCHMARK_OPT_FULL13.md](Docs/11_BENCHMARK_OPT_FULL13.md)** | **全量基准测试报告**：方案 B 480P 真实重跑分项耗时与吞吐详述 | 所有人 |
+| **[Docs/12_BENCHMARK_TIMING_FULL13.md](Docs/12_BENCHMARK_TIMING_FULL13.md)** | **基准性能对照记录**：方案 A 原始耗时基准参考数据 | 性能评估 |
+| **[Docs/13_STATUS.md](Docs/13_STATUS.md)** | **项目状态总览**：当前全链路 100% 闭环状态与物料清单 | 所有人 |
+| **[Docs/14_ROADMAP.md](Docs/14_ROADMAP.md)** | **演进路线规划**：ControlNet 姿态约束、情绪气泡等后续储备方案 | 所有人 |
+| **[Docs/15_CHANGELOG.md](Docs/15_CHANGELOG.md)** | **系统变更日志**：S2 确定性自愈、双池架构等全部演进记录 | 开发接手者 |
+| **[Docs/16_DESIGN_NOTES.md](Docs/16_DESIGN_NOTES.md)** | **工程设计备忘**：早期开发阶段积累的技术细节与约束杂记（原 DESIGN.md） | 备查 |
+| **[Docs/README.md](Docs/README.md)** | **文档索引中心**：完整关系拓扑图与角色化阅读路线 | 所有人 |

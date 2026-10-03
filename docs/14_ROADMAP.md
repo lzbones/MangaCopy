@@ -2,7 +2,7 @@
 
 > **更新时间**：2026-10-01 18:30  
 > **当前状态**：方案 B 全量重新生成 100% 闭环收官；本规划所列建议**已完成机理登记与归档，当前暂不执行，待后续指示**。  
-> **关联文档**：[基准测试报告](BENCHMARK_OPT_FULL13.md) · [硬件与 API 开发指南](HARDWARE_API_GUIDE.md) · [项目状态总览](STATUS.md)  
+> **关联文档**：[基准测试报告](11_BENCHMARK_OPT_FULL13.md) · [硬件与 API 开发指南](06_HARDWARE_API_GUIDE.md) · [项目状态总览](13_STATUS.md)  
 
 ---
 

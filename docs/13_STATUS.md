@@ -56,8 +56,8 @@
               tests/run_rerun_b.py（方案 B 全链路调度器）
 核心代码：mangacopy/（15 个模块 + 20 个 Prompt 模板）
 核心文档：docs/
-  ├── BENCHMARK_OPT_FULL13.md       # 方案 B 完整实测耗时与性能基准报告
-  ├── BENCHMARK_TIMING_FULL13.md    # 基准方案性能参考记录
-  ├── CHANGELOG.md                  # 详细架构与代码变更日志（更新至 2026-10-01）
-  └── STATUS.md                     # 本状态文件
+  ├── 11_BENCHMARK_OPT_FULL13.md       # 方案 B 完整实测耗时与性能基准报告
+  ├── 12_BENCHMARK_TIMING_FULL13.md    # 基准方案性能参考记录
+  ├── 15_CHANGELOG.md                  # 详细架构与代码变更日志（更新至 2026-10-01）
+  └── 13_STATUS.md                     # 本状态文件
 ```
